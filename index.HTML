@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#8a5a2b">
+<title>フクイちゃんとまいごの大冒険 - 福井駅周辺ハイブリッド恐竜周遊マップ</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --amber-50:#FBF3E6; --amber-100:#F3DCAF; --amber-300:#E0A855; --amber-500:#C97F2B;
+  --amber-700:#8F5518; --amber-900:#4A2C0C;
+  --moss-100:#E4EBD9; --moss-400:#7FA35C; --moss-700:#3E5C29;
+  --clay-500:#C1552F; --clay-700:#7E3319;
+  --ink:#2B2114; --ink-soft:#5B4A34; --paper:#FBF3E6;
+  --line: rgba(74,44,12,0.18);
+  --radius-card:18px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;height:100%;}
+body{
+  font-family:"Noto Sans JP", sans-serif;
+  background:
+    radial-gradient(ellipse at 20% 0%, #FDF7EC 0%, var(--paper) 55%),
+    var(--paper);
+  color:var(--ink);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+.font-display{font-family:"Zen Maru Gothic", sans-serif;}
+#app{max-width:480px;margin:0 auto;min-height:100vh;position:relative;padding-bottom:84px;}
+
+/* ---------- top brand strip ---------- */
+.brand-strip{
+  display:flex;align-items:center;gap:10px;
+  padding:14px 20px 10px;
+}
+.brand-strip .badge{
+  width:34px;height:34px;border-radius:50%;
+  background:var(--amber-500);color:var(--paper);
+  display:flex;align-items:center;justify-content:center;
+  font-family:"Zen Maru Gothic";font-weight:900;font-size:15px;flex-shrink:0;
+  box-shadow:0 0 0 3px var(--amber-100);
+}
+.brand-strip .title{font-family:"Zen Maru Gothic";font-weight:700;font-size:14px;color:var(--amber-900);}
+.brand-strip .sub{font-size:11px;color:var(--ink-soft);}
+
+/* ---------- footprint trail (signature element) ---------- */
+.trail{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:6px 22px 18px;position:relative;
+}
+.trail::before{
+  content:"";position:absolute;left:30px;right:30px;top:22px;height:2px;
+  background:repeating-linear-gradient(90deg,var(--amber-300) 0 6px, transparent 6px 12px);
+  z-index:0;
+}
+.trail-step{
+  position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:4px;
+  width:14.2%;
+}
+.trail-step .paw{
+  width:26px;height:26px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;border:2px solid var(--amber-300);background:var(--paper);color:var(--amber-500);
+  transition:all .25s;
+}
+.trail-step.done .paw{background:var(--moss-400);border-color:var(--moss-400);color:#fff;}
+.trail-step.current .paw{background:var(--clay-500);border-color:var(--clay-500);color:#fff;box-shadow:0 0 0 4px rgba(193,85,47,0.2);}
+.trail-step .num{font-size:9px;color:var(--ink-soft);font-weight:500;}
+
+/* ---------- screens ---------- */
+.screen{display:none;padding:0 20px;animation:fade .35s ease;}
+.screen.active{display:block;}
+@keyframes fade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+/* ---------- start screen ---------- */
+.hero-card{
+  background:linear-gradient(180deg, var(--amber-100), var(--amber-50));
+  border:1px solid var(--line);border-radius:var(--radius-card);
+  padding:26px 22px;text-align:center;margin-top:6px;
+}
+.hero-card .egg{font-size:52px;line-height:1;margin-bottom:10px;}
+.hero-card h1{font-family:"Zen Maru Gothic";font-weight:900;font-size:22px;color:var(--amber-900);margin:0 0 10px;}
+.hero-card p{font-size:14px;line-height:1.8;color:var(--ink-soft);margin:0 0 4px;}
+.story-box{
+  margin-top:16px;background:var(--paper);border:1px solid var(--line);
+  border-radius:14px;padding:16px 18px;text-align:left;font-size:13.5px;line-height:1.9;color:var(--ink);
+}
+.story-box b{color:var(--clay-700);}
+
+.btn{
+  width:100%;padding:15px;border:none;border-radius:14px;
+  font-family:"Zen Maru Gothic";font-weight:700;font-size:15px;
+  cursor:pointer;transition:transform .15s;
+}
+.btn:active{transform:scale(.97);}
+.btn-primary{background:var(--clay-500);color:#fff;margin-top:18px;}
+.btn-secondary{background:var(--paper);color:var(--amber-900);border:1.5px solid var(--amber-300);}
+.btn-ghost{background:transparent;color:var(--ink-soft);border:1px dashed var(--line);font-size:12.5px;font-family:"Noto Sans JP";font-weight:500;padding:10px;}
+
+.status-line{
+  display:flex;align-items:center;gap:8px;justify-content:center;
+  margin-top:14px;font-size:12px;color:var(--ink-soft);
+}
+.dot{width:8px;height:8px;border-radius:50%;background:#ccc;flex-shrink:0;}
+.dot.ok{background:var(--moss-400);}
+.dot.warn{background:var(--clay-500);}
+
+/* ---------- map / spot list ---------- */
+.section-label{
+  font-family:"Zen Maru Gothic";font-weight:700;font-size:13px;color:var(--amber-900);
+  margin:18px 2px 8px;display:flex;align-items:center;gap:6px;
+}
+.spot-card{
+  display:flex;gap:12px;align-items:flex-start;
+  background:var(--paper);border:1px solid var(--line);border-radius:16px;
+  padding:14px 16px;margin-bottom:10px;position:relative;overflow:hidden;
+}
+.spot-card.locked{opacity:.55;}
+.spot-card.arrived{border-color:var(--moss-400);background:var(--moss-100);}
+.spot-card.here{border-color:var(--clay-500);box-shadow:0 0 0 2px rgba(193,85,47,.15);}
+.spot-num{
+  font-family:"Zen Maru Gothic";font-weight:900;font-size:16px;
+  width:30px;height:30px;border-radius:50%;background:var(--amber-100);color:var(--amber-700);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;
+}
+.spot-card.arrived .spot-num{background:var(--moss-400);color:#fff;}
+.spot-card.here .spot-num{background:var(--clay-500);color:#fff;}
+.spot-body{flex:1;min-width:0;}
+.spot-name{font-family:"Zen Maru Gothic";font-weight:700;font-size:14.5px;margin:0 0 3px;}
+.spot-meta{font-size:11.5px;color:var(--ink-soft);display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.spot-dist{font-weight:500;}
+.spot-hint{font-size:12px;color:var(--ink-soft);margin-top:6px;line-height:1.6;}
+.spot-btn{
+  margin-top:8px;font-size:12px;padding:8px 14px;border-radius:20px;border:none;
+  background:var(--clay-500);color:#fff;font-family:"Zen Maru Gothic";font-weight:700;
+}
+.chip{
+  font-size:10px;padding:2px 8px;border-radius:20px;background:var(--amber-100);color:var(--amber-700);
+  font-weight:700;
+}
+
+/* ---------- AR screen ---------- */
+.ar-wrap{position:relative;width:100%;aspect-ratio:3/4;border-radius:20px;overflow:hidden;background:#111;margin-top:8px;}
+#ar-video{width:100%;height:100%;object-fit:cover;}
+#ar-canvas{position:absolute;inset:0;width:100%;height:100%;}
+.ar-overlay-ui{position:absolute;left:0;right:0;bottom:0;padding:16px;display:flex;gap:10px;justify-content:center;}
+.ar-shutter{
+  width:64px;height:64px;border-radius:50%;background:#fff;border:4px solid rgba(255,255,255,.5);
+  cursor:pointer;
+}
+.ar-hint-badge{
+  position:absolute;top:12px;left:12px;right:12px;background:rgba(0,0,0,.55);color:#fff;
+  font-size:12px;padding:8px 12px;border-radius:12px;line-height:1.5;
+}
+
+/* ---------- album ---------- */
+.album-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;}
+.album-slot{
+  aspect-ratio:1;border-radius:12px;background:var(--amber-100);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+  border:1px solid var(--line);position:relative;
+}
+.album-slot img{width:100%;height:100%;object-fit:cover;}
+.album-slot .placeholder{font-size:20px;color:var(--amber-500);opacity:.5;}
+.album-slot .label{position:absolute;bottom:3px;right:6px;font-size:9px;color:#fff;background:rgba(0,0,0,.4);padding:1px 5px;border-radius:8px;}
+
+/* ---------- bottom nav ---------- */
+.tabbar{
+  position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;
+  background:var(--paper);border-top:1px solid var(--line);
+  display:flex;padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+  z-index:20;
+}
+.tab{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+  background:none;border:none;font-size:10.5px;color:var(--ink-soft);
+  font-family:"Noto Sans JP";padding:6px 0;cursor:pointer;
+}
+.tab.active{color:var(--clay-500);font-weight:700;}
+.tab .ic{font-size:18px;}
+
+/* ---------- modal ---------- */
+.modal-back{
+  position:fixed;inset:0;background:rgba(43,33,20,.55);z-index:30;
+  display:none;align-items:flex-end;justify-content:center;
+}
+.modal-back.open{display:flex;}
+.modal-sheet{
+  width:100%;max-width:480px;background:var(--paper);border-radius:22px 22px 0 0;
+  padding:22px 22px calc(22px + env(safe-area-inset-bottom));max-height:85vh;overflow-y:auto;
+}
+.modal-sheet h2{font-family:"Zen Maru Gothic";font-size:17px;margin:0 0 10px;color:var(--amber-900);}
+.close-x{float:right;background:none;border:none;font-size:18px;color:var(--ink-soft);cursor:pointer;}
+
+.toast{
+  position:fixed;top:16px;left:50%;transform:translateX(-50%);
+  background:var(--ink);color:#fff;padding:10px 18px;border-radius:20px;font-size:12.5px;
+  z-index:50;opacity:0;pointer-events:none;transition:opacity .25s;
+}
+.toast.show{opacity:1;}
+
+.debug-panel{
+  margin-top:16px;padding:12px 14px;border:1px dashed var(--line);border-radius:12px;font-size:11.5px;color:var(--ink-soft);
+}
+.debug-panel input{width:100%;font-size:12px;padding:6px;margin:4px 0;border-radius:8px;border:1px solid var(--line);}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="brand-strip">
+    <div class="badge">福</div>
+    <div>
+      <div class="title">フクイちゃんとまいごの大冒険</div>
+      <div class="sub">福井駅周辺ハイブリッド恐竜周遊マップ</div>
+    </div>
+  </div>
+
+  <div class="trail" id="trail"></div>
+
+  <!-- ============ START SCREEN ============ -->
+  <section class="screen active" id="screen-start">
+    <div class="hero-card">
+      <div class="egg">🥚🦖</div>
+      <h1>フクイちゃんが、まいごに…</h1>
+      <p>北陸新幹線で福井駅に着いたばかりの子恐竜「フクイちゃん」。<br>駅前のにぎわいに驚いて、お父さん・お母さんとはぐれてしまいました。</p>
+      <div class="story-box">
+        <b>「一緒に、お父さん(お母さん)を探して！」</b><br>
+        紙の地図を片手に、6つのスポットをめぐりながら親子の足跡を追いかけよう。各スポットに着くと、フクイちゃんがARで飛び出してくるよ。
+      </div>
+      <button class="btn btn-primary" id="btn-start">紙マップのQRを読み込んで冒険をはじめる</button>
+      <button class="btn btn-ghost" id="btn-skip-qr" style="margin-top:8px;">(開発中) QRなしでスタート</button>
+      <div class="status-line">
+        <span class="dot" id="dot-gps"></span><span id="txt-gps">位置情報: 未確認</span>
+      </div>
+    </div>
+
+    <div class="debug-panel" id="debug-panel">
+      <b>現地テスト用デバッグパネル（Phase 5向け）</b><br>
+      実機で試走できないときは、緯度経度を手入力して各スポットの判定距離を確認できます。
+      <input type="text" id="debug-lat" placeholder="緯度 例: 36.06126">
+      <input type="text" id="debug-lng" placeholder="経度 例: 136.22225">
+      <button class="btn btn-secondary" id="btn-debug-apply" style="margin-top:4px;">この座標で判定する</button>
+    </div>
+  </section>
+
+  <!-- ============ MAP SCREEN ============ -->
+  <section class="screen" id="screen-map">
+    <div class="section-label">🗺️ 周遊ルート（全6スポット）</div>
+    <div id="spot-list"></div>
+  </section>
+
+  <!-- ============ ALBUM SCREEN ============ -->
+  <section class="screen" id="screen-album">
+    <div class="section-label">📖 ビジュアルダイアリー</div>
+    <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 4px;">撮影したARフォトはここに保存されます。</p>
+    <div class="album-grid" id="album-grid"></div>
+  </section>
+
+  <div class="tabbar">
+    <button class="tab active" data-screen="screen-start"><span class="ic">🏁</span>スタート</button>
+    <button class="tab" data-screen="screen-map"><span class="ic">🗺️</span>マップ</button>
+    <button class="tab" data-screen="screen-album"><span class="ic">📖</span>ダイアリー</button>
+  </div>
+</div>
+
+<!-- ============ AR MODAL ============ -->
+<div class="modal-back" id="ar-modal">
+  <div class="modal-sheet">
+    <button class="close-x" id="ar-close">✕</button>
+    <h2 id="ar-title">ARで会う</h2>
+    <div class="ar-wrap">
+      <video id="ar-video" autoplay playsinline muted></video>
+      <canvas id="ar-canvas"></canvas>
+      <div class="ar-hint-badge" id="ar-hint">カメラを起動しています…</div>
+      <div class="ar-overlay-ui">
+        <div class="ar-shutter" id="ar-shutter"></div>
+      </div>
+    </div>
+    <p style="font-size:11.5px;color:var(--ink-soft);margin-top:10px;">
+      ※このAR表示は簡易プレースホルダーです。実運用では Phase 2 で制作する「フクイちゃん」の .glb 3Dモデルを
+      A-Frame + AR.js（location-based）で読み込み、実写カメラに重ねて表示します。
+    </p>
+  </div>
+</div>
+
+<!-- ============ STORY MODAL ============ -->
+<div class="modal-back" id="story-modal">
+  <div class="modal-sheet">
+    <button class="close-x" id="story-close">✕</button>
+    <h2 id="story-title">スポット名</h2>
+    <div id="story-body" style="font-size:13.5px;line-height:1.9;"></div>
+    <button class="btn btn-primary" id="story-ar-btn">ARでフクイちゃんに会う</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   Phase 1 データ: 6スポットの緯度経度・GPS判定半径
+   （Google Places で取得した実座標。半径は現地の電波/樹木/建物
+    条件を考慮した初期値。Phase 5 の実地試走で微調整すること。）
+========================================================= */
+const SPOTS = [
+  {
+    id:1, name:"① 恐竜広場（スタート地点）",
+    lat:36.0625914, lng:136.2229116, radius:25,
+    note:"屋外の開けた広場。空が開けておりGPS精度は良好な見込み。",
+    arrive:"新幹線を降りたフクイちゃんは、駅前のにぎわいに立ちすくんでいる。足元にはアナログマップに描かれた最初の足跡マークがある。",
+    hint:"絆の神様がいる場所を目指そう！（徒歩5分）",
+    ar:"泣きそうなフクイちゃんが出現。「強い絆が集まる赤い神社に向かったみたい！」"
+  },
+  {
+    id:2, name:"② 北庄城址・柴田神社",
+    lat:36.0602703, lng:136.2196588, radius:30,
+    note:"境内は木立に囲まれるが比較的開けた区画。",
+    arrive:"柴田勝家公とお市の方を祀る「絆の宮」。境内で親恐竜の大きな足跡を発見した。",
+    hint:"青い石でできたお城のお堀に向かったよ！（徒歩5分）",
+    ar:"「絆」の歴史や銘菓「瓶割りせんべい」のミニクイズに挑戦。クリアすると親の残したメモ（青い石垣の絵）が解放される。"
+  },
+  {
+    id:3, name:"③ 福井城址（御廊下橋・福の井）",
+    lat:36.0651734, lng:136.2205406, radius:35,
+    note:"堀に近く周囲に県庁舎など高層構造物あり。反射によるGPSズレに注意。",
+    arrive:"綺麗な御廊下橋を渡り城址内へ。福の井のそばで、親恐竜が喉を潤した跡を見つけた。",
+    hint:"殿様のお庭（養浩館庭園）へ休みに向かおう！（徒歩10分）",
+    ar:"スマホを井戸にかざすと水面に親の影が映る。「静かな庭園でお休みしてくるね」という音声が流れる。"
+  },
+  {
+    id:4, name:"④ 名勝 養浩館庭園",
+    lat:36.0686037, lng:136.2242666, radius:35,
+    note:"庭園内は樹木が多く、建物付近でGPS精度が落ちやすい。",
+    arrive:"美しい数寄屋造りの屋敷と庭園。池を眺めると、親恐竜が休んだ大きな葉っぱのベッドを発見した。",
+    hint:"昭和レトロなおいしいお店が並ぶ商店街へ！（徒歩10分）",
+    ar:"藩主と同じ目線で庭園を観覧するマナー啓発コンテンツ。親恐竜が「子においしいお土産を買いたい」と話していた情報が流れる。"
+  },
+  {
+    id:5, name:"⑤ 新栄商店街・ガレリア元町",
+    lat:36.0608637, lng:136.2207079, radius:50,
+    note:"アーケード屋根あり。GPS精度が大きく低下する想定区間。要現地キャリブレーション。",
+    arrive:"レトロな商店街を散策。店主から「大きな恐竜が伝統工芸品や銘菓を探していた」と聞いた。",
+    hint:"福井駅前のハピリンへ急ごう！（徒歩5分）",
+    ar:"店舗でチェックインすると、おすすめフード（水ようかん等）やクーポンが表示される。「ハピリンにいるよ！」の目撃情報。"
+  },
+  {
+    id:6, name:"⑥ ハピリン",
+    lat:36.0612834, lng:136.2222364, radius:50,
+    note:"多層階の屋内施設。GPSのみでの判定は精度に限界あり。店舗チェックイン等の代替導線を検討。",
+    arrive:"2階「福人喜」へ。親恐竜が選んだ伝統工芸品（越前漆器・和紙）や水ようかんが並んでいる。",
+    hint:"目の前の恐竜広場へ向かおう！",
+    ar:"ミッション完了で「お福分け」ノベルティ獲得演出。画面に「恐竜広場で待っているよ！」のメッセージ。"
+  }
+];
+const GOAL = {
+  name:"ゴール：恐竜広場",
+  arrive:"ハピリンを出て恐竜広場へ戻ると、親恐竜のもとへ辿り着いた！",
+  ar:"親子がギューッと抱き合う感動の再会AR演出。コンプリート限定フォトフレーム＆ビジュアルダイアリーを発行。"
+};
+
+/* =========================================================
+   状態管理（localStorage永続化）
+========================================================= */
+const STORAGE_KEY = "dino_map_progress_v1";
+const ALBUM_KEY = "dino_map_album_v1";
+
+function loadProgress(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {arrived:{}, started:false};
+  }catch(e){ return {arrived:{}, started:false}; }
+}
+function saveProgress(p){ localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); }
+function loadAlbum(){
+  try{ return JSON.parse(localStorage.getItem(ALBUM_KEY) || "[]"); }catch(e){ return []; }
+}
+function saveAlbum(a){ localStorage.setItem(ALBUM_KEY, JSON.stringify(a)); }
+
+let progress = loadProgress();
+let album = loadAlbum();
+let currentPos = null;
+let watchId = null;
+let activeSpot = null;
+
+/* =========================================================
+   距離計算（Haversine公式）
+========================================================= */
+function distanceMeters(lat1, lng1, lat2, lng2){
+  const R = 6371000;
+  const toRad = d => d * Math.PI/180;
+  const dLat = toRad(lat2-lat1);
+  const dLng = toRad(lng2-lng1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2;
+  return R * 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+/* =========================================================
+   GPS 監視
+========================================================= */
+function startGPS(){
+  if(!("geolocation" in navigator)){
+    setGpsStatus(false, "この端末では位置情報が使えません");
+    return;
+  }
+  setGpsStatus(false, "位置情報を取得中…");
+  watchId = navigator.geolocation.watchPosition(
+    pos => {
+      currentPos = {lat:pos.coords.latitude, lng:pos.coords.longitude, acc:pos.coords.accuracy};
+      setGpsStatus(true, `位置情報OK（精度 約${Math.round(pos.coords.accuracy)}m）`);
+      renderSpotList();
+    },
+    err => {
+      setGpsStatus(false, "位置情報の取得に失敗: " + err.message);
+    },
+    {enableHighAccuracy:true, maximumAge:5000, timeout:15000}
+  );
+}
+function setGpsStatus(ok, text){
+  document.getElementById("dot-gps").className = "dot " + (ok ? "ok" : "warn");
+  document.getElementById("txt-gps").textContent = text;
+}
+
+/* デバッグ用: 手入力座標を currentPos に反映 */
+document.getElementById("btn-debug-apply").addEventListener("click", ()=>{
+  const lat = parseFloat(document.getElementById("debug-lat").value);
+  const lng = parseFloat(document.getElementById("debug-lng").value);
+  if(isNaN(lat) || isNaN(lng)){ showToast("緯度・経度を正しく入力してください"); return; }
+  currentPos = {lat, lng, acc:5};
+  setGpsStatus(true, "デバッグ座標を使用中（精度 5m 相当）");
+  renderSpotList();
+  showToast("デバッグ座標を適用しました");
+});
+
+/* =========================================================
+   画面遷移
+========================================================= */
+function showScreen(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  document.querySelectorAll(".tab").forEach(t=>{
+    t.classList.toggle("active", t.dataset.screen === id);
+  });
+  if(id === "screen-album") renderAlbum();
+}
+document.querySelectorAll(".tab").forEach(t=>{
+  t.addEventListener("click", ()=> showScreen(t.dataset.screen));
+});
+
+document.getElementById("btn-start").addEventListener("click", ()=>{
+  progress.started = true; saveProgress(progress);
+  startGPS();
+  showScreen("screen-map");
+  showToast("QRを読み込みました。GPS判定で自動進行します");
+});
+document.getElementById("btn-skip-qr").addEventListener("click", ()=>{
+  progress.started = true; saveProgress(progress);
+  startGPS();
+  showScreen("screen-map");
+});
+
+/* =========================================================
+   足あとトレイル描画
+========================================================= */
+function renderTrail(){
+  const trail = document.getElementById("trail");
+  trail.innerHTML = "";
+  SPOTS.forEach((s, i)=>{
+    const done = !!progress.arrived[s.id];
+    const isCurrent = !done && isCurrentTarget(s);
+    const div = document.createElement("div");
+    div.className = "trail-step" + (done ? " done" : "") + (isCurrent ? " current" : "");
+    div.innerHTML = `<div class="paw">🐾</div><div class="num">${i+1}</div>`;
+    trail.appendChild(div);
+  });
+}
+function isCurrentTarget(spot){
+  const firstUnarrived = SPOTS.find(s => !progress.arrived[s.id]);
+  return firstUnarrived && firstUnarrived.id === spot.id;
+}
+
+/* =========================================================
+   スポット一覧描画
+========================================================= */
+function renderSpotList(){
+  renderTrail();
+  const list = document.getElementById("spot-list");
+  list.innerHTML = "";
+  SPOTS.forEach(spot=>{
+    const arrived = !!progress.arrived[spot.id];
+    let dist = null;
+    if(currentPos){
+      dist = distanceMeters(currentPos.lat, currentPos.lng, spot.lat, spot.lng);
+    }
+    const here = !arrived && dist !== null && dist <= spot.radius;
+    if(here && !arrived){
+      progress.arrived[spot.id] = true;
+      saveProgress(progress);
+      showToast(spot.name + " に到着しました！");
+    }
+    const card = document.createElement("div");
+    card.className = "spot-card " + (arrived ? "arrived" : (here ? "here" : "locked"));
+    card.innerHTML = `
+      <div class="spot-num">${spot.id}</div>
+      <div class="spot-body">
+        <p class="spot-name">${spot.name}</p>
+        <div class="spot-meta">
+          <span class="chip">判定半径 ${spot.radius}m</span>
+          <span class="spot-dist">${dist !== null ? "現在地から約" + Math.round(dist) + "m" : "位置情報待ち"}</span>
+        </div>
+        <div class="spot-hint">${spot.note}</div>
+        ${arrived ? `<button class="spot-btn" data-open="${spot.id}">ストーリーを見る</button>` : ""}
+      </div>
+    `;
+    list.appendChild(card);
+  });
+  list.querySelectorAll("[data-open]").forEach(btn=>{
+    btn.addEventListener("click", ()=> openStory(parseInt(btn.dataset.open)));
+  });
+}
+
+/* 到着後にもう一度描画し直せるよう定期チェック */
+setInterval(()=>{ if(currentPos) renderSpotList(); }, 4000);
+
+/* =========================================================
+   ストーリーモーダル
+========================================================= */
+function openStory(id){
+  activeSpot = SPOTS.find(s=>s.id===id);
+  document.getElementById("story-title").textContent = activeSpot.name;
+  document.getElementById("story-body").innerHTML =
+    `<p>${activeSpot.arrive}</p><p style="color:var(--clay-700);font-weight:500;">${activeSpot.hint}</p>`;
+  document.getElementById("story-modal").classList.add("open");
+}
+document.getElementById("story-close").addEventListener("click", ()=>{
+  document.getElementById("story-modal").classList.remove("open");
+});
+document.getElementById("story-ar-btn").addEventListener("click", ()=>{
+  document.getElementById("story-modal").classList.remove("open");
+  openAR(activeSpot);
+});
+
+/* =========================================================
+   AR画面（簡易プレースホルダー実装）
+   本番では A-Frame + AR.js(location-based) の
+   <a-scene arjs> + gps-entity-place に置き換え、
+   Phase2で制作する .glb モデルをそこに読み込む。
+========================================================= */
+let arStream = null;
+function openAR(spot){
+  document.getElementById("ar-title").textContent = spot.name + " のフクイちゃん";
+  document.getElementById("ar-hint").textContent = spot.ar;
+  document.getElementById("ar-modal").classList.add("open");
+  const video = document.getElementById("ar-video");
+  navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}, audio:false})
+    .then(stream=>{
+      arStream = stream;
+      video.srcObject = stream;
+      drawAROverlay();
+    })
+    .catch(err=>{
+      document.getElementById("ar-hint").textContent = "カメラを利用できません（" + err.message + "）。本番では実機カメラで動作します。";
+    });
+}
+function drawAROverlay(){
+  const canvas = document.getElementById("ar-canvas");
+  const ctx = canvas.getContext("2d");
+  function resize(){
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+  }
+  resize();
+  window.addEventListener("resize", resize);
+  let t = 0;
+  function loop(){
+    if(!document.getElementById("ar-modal").classList.contains("open")) return;
+    ctx.clearRect(0,0,canvas.width, canvas.height);
+    const bob = Math.sin(t/25) * 8;
+    const cx = canvas.width/2, cy = canvas.height*0.62 + bob;
+    ctx.font = (canvas.width*0.28) + "px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("🦕", cx, cy);
+    ctx.font = "13px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.fillText("フクイちゃん（仮モデル / Phase2で.glbに差替）", cx, cy + canvas.height*0.14);
+    t++;
+    requestAnimationFrame(loop);
+  }
+  loop();
+}
+function closeAR(){
+  document.getElementById("ar-modal").classList.remove("open");
+  if(arStream){ arStream.getTracks().forEach(t=>t.stop()); arStream = null; }
+}
+document.getElementById("ar-close").addEventListener("click", closeAR);
+
+document.getElementById("ar-shutter").addEventListener("click", ()=>{
+  const video = document.getElementById("ar-video");
+  const overlay = document.getElementById("ar-canvas");
+  const out = document.createElement("canvas");
+  out.width = overlay.clientWidth; out.height = overlay.clientHeight;
+  const octx = out.getContext("2d");
+  if(video.videoWidth){
+    octx.drawImage(video, 0,0, out.width, out.height);
+  }
+  octx.drawImage(overlay, 0,0, out.width, out.height);
+  const dataUrl = out.toDataURL("image/png");
+  album.unshift({id:Date.now(), spot: activeSpot ? activeSpot.name : "?", img: dataUrl});
+  saveAlbum(album);
+  showToast("フォトを保存しました！ダイアリーで見られます");
+});
+
+/* =========================================================
+   ダイアリー（アルバム）
+========================================================= */
+function renderAlbum(){
+  const grid = document.getElementById("album-grid");
+  grid.innerHTML = "";
+  const totalSlots = Math.max(6, album.length);
+  for(let i=0;i<totalSlots;i++){
+    const item = album[i];
+    const slot = document.createElement("div");
+    slot.className = "album-slot";
+    if(item){
+      slot.innerHTML = `<img src="${item.img}" alt="${item.spot}"><span class="label">${item.spot.replace(/^[①-⑥]\s*/,'').slice(0,6)}</span>`;
+    }else{
+      slot.innerHTML = `<span class="placeholder">🦴</span>`;
+    }
+    grid.appendChild(slot);
+  }
+}
+
+/* =========================================================
+   トースト通知
+========================================================= */
+let toastTimer = null;
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> t.classList.remove("show"), 2600);
+}
+
+/* =========================================================
+   初期化
+========================================================= */
+renderTrail();
+renderSpotList();
+if(progress.started){
+  showScreen("screen-map");
+  startGPS();
+}
+
+if("serviceWorker" in navigator){
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("sw.js").catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
