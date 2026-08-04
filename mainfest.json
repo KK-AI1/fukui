@@ -1,0 +1,23 @@
+{
+  "name": "フクイちゃんとまいごの大冒険",
+  "short_name": "フクイちゃん",
+  "description": "福井駅周辺ハイブリッド恐竜周遊マップ",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#FBF3E6",
+  "theme_color": "#8a5a2b",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%23C97F2B'/%3E%3Ctext x='96' y='96' font-size='110' text-anchor='middle' dominant-baseline='central'%3E%F0%9F%A6%95%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='80' fill='%23C97F2B'/%3E%3Ctext x='256' y='256' font-size='300' text-anchor='middle' dominant-baseline='central'%3E%F0%9F%A6%95%3C/text%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
