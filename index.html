@@ -298,7 +298,7 @@ body{
       </div>
     </div>
     <p style="font-size:11.5px;color:var(--ink-soft);margin-top:10px;">
-      実写カメラの上に3Dモデルをリアルタイム合成表示しています（three.js使用）。指で画面をドラッグすると、モデルを回転させて色々な角度から見られます。
+      実写カメラの上に3Dモデルをリアルタイム合成表示しています（three.js使用）。フクイちゃんはその場に立っているので、スマホの向きを変えると見える角度が変わります。指で画面をドラッグすると、モデル自体を回転させることもできます。
     </p>
   </div>
 </div>
@@ -735,6 +735,69 @@ const CAMERA_POSITION = new THREE.Vector3(0, 0.55, 3.0);
 const CAMERA_LOOKAT = new THREE.Vector3(0, 0.42, 0);
 const SINGLE_MODEL_OFFSET_X = 0.28; // 顔にかぶらないよう中心から少し横にずらす
 const PAIR_SPREAD_X = 0.62;
+const baseQuaternion = new THREE.Quaternion();
+
+/* =========================================================
+   ジャイロ(端末の向き)によるワールドロックAR
+   ポケモンGOのように、キャラクターを実空間の一点に固定しておき、
+   スマホを振ったり回したりすると見える角度が変わるようにする。
+   （位置トラッキングまではしないため「その場で振り向く」だけの
+   簡易ワールドロックだが、体感としては大きく改善する）
+========================================================= */
+let orientationEnabled = false;
+let orientationListenerAdded = false;
+let referenceQuaternion = null;
+const deviceQuaternion = new THREE.Quaternion();
+const relativeQuaternion = new THREE.Quaternion();
+
+const _zee = new THREE.Vector3(0, 0, 1);
+const _euler = new THREE.Euler();
+const _q0 = new THREE.Quaternion();
+const _q1 = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5)); // -90deg around x
+
+function screenOrientationAngle(){
+  if(screen.orientation && typeof screen.orientation.angle === "number") return screen.orientation.angle;
+  if(typeof window.orientation === "number") return window.orientation;
+  return 0;
+}
+
+function updateDeviceQuaternion(alpha, beta, gamma, out){
+  const x = beta ? THREE.MathUtils.degToRad(beta) : 0;
+  const y = gamma ? THREE.MathUtils.degToRad(gamma) : 0;
+  const z = alpha ? THREE.MathUtils.degToRad(alpha) : 0;
+  const o = THREE.MathUtils.degToRad(screenOrientationAngle());
+  _euler.set(x, y, -z, "YXZ");
+  out.setFromEuler(_euler);
+  out.multiply(_q1);
+  out.multiply(_q0.setFromAxisAngle(_zee, -o));
+  return out;
+}
+
+function onDeviceOrientation(e){
+  if(e.alpha === null) return; // センサー値が取れない環境
+  updateDeviceQuaternion(e.alpha, e.beta, e.gamma, deviceQuaternion);
+  if(referenceQuaternion === null){
+    // AR起動時にスマホが向いていた方向を「正面」として基準化する
+    referenceQuaternion = deviceQuaternion.clone().invert();
+  }
+  orientationEnabled = true;
+}
+
+async function enableOrientationTracking(){
+  if(!orientationListenerAdded){
+    window.addEventListener("deviceorientation", onDeviceOrientation);
+    orientationListenerAdded = true;
+  }
+  if(typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function"){
+    try{
+      const res = await DeviceOrientationEvent.requestPermission();
+      if(res !== "granted") return false;
+    }catch(e){
+      return false;
+    }
+  }
+  return true;
+}
 
 function ensureRenderer(canvas){
   if(renderer) return;
@@ -803,6 +866,11 @@ async function open(canvas, modelPaths, loadingEl){
   setupDrag(canvas);
   fitCanvas(canvas);
 
+  // 毎回AR起動時に「今スマホが向いている方向」を正面として撮り直す
+  referenceQuaternion = null;
+  orientationEnabled = false;
+  enableOrientationTracking();
+
   if(group){ scene.remove(group); group = null; }
   group = new THREE.Group();
   scene.add(group);
@@ -831,6 +899,7 @@ async function open(canvas, modelPaths, loadingEl){
 
     camera.position.copy(CAMERA_POSITION);
     camera.lookAt(CAMERA_LOOKAT);
+    baseQuaternion.copy(camera.quaternion);
   }catch(err){
     if(loadingEl){ loadingEl.textContent = "3Dモデルの読み込みに失敗しました"; }
     console.error("AR3D load error", err);
@@ -842,6 +911,11 @@ async function open(canvas, modelPaths, loadingEl){
   cancelAnimationFrame(rafId);
   function loop(){
     rafId = requestAnimationFrame(loop);
+    if(orientationEnabled && referenceQuaternion){
+      // 基準向きからの相対回転をカメラに適用 → スマホを振ると視点が変わる
+      relativeQuaternion.copy(referenceQuaternion).multiply(deviceQuaternion);
+      camera.quaternion.copy(baseQuaternion).multiply(relativeQuaternion);
+    }
     fitCanvas(canvas);
     renderer.render(scene, camera);
   }
