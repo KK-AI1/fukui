@@ -712,6 +712,16 @@ let dragEnabled = false, dragging = false, dragStartX = 0, dragStartRotY = 0;
 const loader = new GLTFLoader();
 const modelCache = {};
 
+// ポケモンGO方式: モデルごとの自動フィットをやめ、キャラクター/カメラとも固定値にする。
+// (以前はモデルの最大寸法に合わせて自動スケール・自動カメラ距離を計算していたが、
+//  各モデルの「最大寸法」がキャラごとに違う軸[縦/横]になっており、見た目のサイズが
+//  キャラによってバラつく原因になっていた。)
+const CHAR_SCALE = 0.85;
+const CAMERA_POSITION = new THREE.Vector3(0, 0.55, 3.0);
+const CAMERA_LOOKAT = new THREE.Vector3(0, 0.42, 0);
+const SINGLE_MODEL_OFFSET_X = 0.28; // 顔にかぶらないよう中心から少し横にずらす
+const PAIR_SPREAD_X = 0.62;
+
 function ensureRenderer(canvas){
   if(renderer) return;
   renderer = new THREE.WebGLRenderer({canvas, alpha:true, antialias:true, preserveDrawingBuffer:true});
@@ -787,29 +797,25 @@ async function open(canvas, modelPaths, loadingEl){
   try{
     const models = await Promise.all(modelPaths.map(loadModel));
     models.forEach((obj, i)=>{
+      // モデル固有の原点ズレ(中心が原点にない/足が地面についていない)だけ補正し、
+      // 見た目の大きさ・カメラ位置はキャラに関わらず常に同じ固定値を使う。
       const box = new THREE.Box3().setFromObject(obj);
-      const size = box.getSize(new THREE.Vector3());
       const center = box.getCenter(new THREE.Vector3());
-      const maxDim = Math.max(size.x, size.y, size.z) || 1;
-      const scale = 1.3 / maxDim;
-      obj.scale.setScalar(scale);
-      obj.position.x -= center.x * scale;
-      obj.position.y -= box.min.y * scale;
-      obj.position.z -= center.z * scale;
+      obj.scale.setScalar(CHAR_SCALE);
+      obj.position.x -= center.x * CHAR_SCALE;
+      obj.position.y -= box.min.y * CHAR_SCALE;
+      obj.position.z -= center.z * CHAR_SCALE;
       if(models.length > 1){
-        const spread = 0.9;
-        obj.position.x += (i - (models.length - 1) / 2) * spread;
+        obj.position.x += (i - (models.length - 1) / 2) * PAIR_SPREAD_X;
         obj.rotation.y = (i === 0 ? 0.3 : -0.3);
+      }else{
+        obj.position.x += SINGLE_MODEL_OFFSET_X;
       }
       group.add(obj);
     });
 
-    const gbox = new THREE.Box3().setFromObject(group);
-    const gsize = gbox.getSize(new THREE.Vector3());
-    const gcenter = gbox.getCenter(new THREE.Vector3());
-    const dist = Math.max(gsize.x, gsize.y, gsize.z) * 1.7 + 1.1;
-    camera.position.set(gcenter.x, gcenter.y + gsize.y * 0.18, dist);
-    camera.lookAt(gcenter.x, gcenter.y + gsize.y * 0.08, gcenter.z);
+    camera.position.copy(CAMERA_POSITION);
+    camera.lookAt(CAMERA_LOOKAT);
   }catch(err){
     if(loadingEl){ loadingEl.textContent = "3Dモデルの読み込みに失敗しました"; }
     console.error("AR3D load error", err);
@@ -818,15 +824,9 @@ async function open(canvas, modelPaths, loadingEl){
     if(loadingEl) loadingEl.style.display = "none";
   }
 
-  let t = 0;
   cancelAnimationFrame(rafId);
   function loop(){
     rafId = requestAnimationFrame(loop);
-    t += 0.016;
-    if(group && !dragging){
-      group.rotation.y = Math.sin(t * 0.6) * 0.35;
-      group.position.y = Math.sin(t * 1.6) * 0.025;
-    }
     fitCanvas(canvas);
     renderer.render(scene, camera);
   }
