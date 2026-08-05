@@ -716,7 +716,21 @@ const modelCache = {};
 // (以前はモデルの最大寸法に合わせて自動スケール・自動カメラ距離を計算していたが、
 //  各モデルの「最大寸法」がキャラごとに違う軸[縦/横]になっており、見た目のサイズが
 //  キャラによってバラつく原因になっていた。)
-const CHAR_SCALE = 0.85;
+// キャラクターごとのサイズ差(子ども恐竜=フクイちゃん本体は小さく、大人の恐竜キャラは
+// 大きく)を表現するための固定スケール表。数値を変えるだけで見た目の大きさを調整できる。
+const MODEL_SCALES = {
+  "kodomo.glb": 0.55,
+  "chichi.glb": 1.05,
+  "rekishi.glb": 1.05,
+  "ptera.glb": 1.05,
+  "ticket.glb": 1.05,
+  "dango.glb": 1.05,
+};
+const DEFAULT_SCALE = 0.85;
+function scaleForModel(path){
+  const name = path.split("/").pop();
+  return MODEL_SCALES[name] !== undefined ? MODEL_SCALES[name] : DEFAULT_SCALE;
+}
 const CAMERA_POSITION = new THREE.Vector3(0, 0.55, 3.0);
 const CAMERA_LOOKAT = new THREE.Vector3(0, 0.42, 0);
 const SINGLE_MODEL_OFFSET_X = 0.28; // 顔にかぶらないよう中心から少し横にずらす
@@ -798,13 +812,14 @@ async function open(canvas, modelPaths, loadingEl){
     const models = await Promise.all(modelPaths.map(loadModel));
     models.forEach((obj, i)=>{
       // モデル固有の原点ズレ(中心が原点にない/足が地面についていない)だけ補正し、
-      // 見た目の大きさ・カメラ位置はキャラに関わらず常に同じ固定値を使う。
+      // カメラ位置は常に固定。大きさだけはキャラクター表(MODEL_SCALES)に従う。
       const box = new THREE.Box3().setFromObject(obj);
       const center = box.getCenter(new THREE.Vector3());
-      obj.scale.setScalar(CHAR_SCALE);
-      obj.position.x -= center.x * CHAR_SCALE;
-      obj.position.y -= box.min.y * CHAR_SCALE;
-      obj.position.z -= center.z * CHAR_SCALE;
+      const s = scaleForModel(modelPaths[i]);
+      obj.scale.setScalar(s);
+      obj.position.x -= center.x * s;
+      obj.position.y -= box.min.y * s;
+      obj.position.z -= center.z * s;
       if(models.length > 1){
         obj.position.x += (i - (models.length - 1) / 2) * PAIR_SPREAD_X;
         obj.rotation.y = (i === 0 ? 0.3 : -0.3);
