@@ -9,6 +9,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/build/three.module.js"
+  }
+}
+</script>
 <style>
 :root{
   --amber-50:#FBF3E6; --amber-100:#F3DCAF; --amber-300:#E0A855; --amber-500:#C97F2B;
@@ -143,11 +150,18 @@ body{
   font-size:10px;padding:2px 8px;border-radius:20px;background:var(--amber-100);color:var(--amber-700);
   font-weight:700;
 }
+.spot-card.goal{
+  background:linear-gradient(180deg, var(--amber-100), var(--amber-50));
+  border:1.5px solid var(--amber-300);
+}
+.spot-card.goal.ready{border-color:var(--clay-500);box-shadow:0 0 0 2px rgba(193,85,47,.15);}
+.spot-card.goal .spot-num{background:var(--amber-500);color:#fff;font-size:18px;}
 
 /* ---------- AR screen ---------- */
 .ar-wrap{position:relative;width:100%;aspect-ratio:3/4;border-radius:20px;overflow:hidden;background:#111;margin-top:8px;}
 #ar-video{width:100%;height:100%;object-fit:cover;}
-#ar-canvas{position:absolute;inset:0;width:100%;height:100%;}
+#ar-gl{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+.ar-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;background:rgba(0,0,0,.15);}
 .ar-overlay-ui{position:absolute;left:0;right:0;bottom:0;padding:16px;display:flex;gap:10px;justify-content:center;}
 .ar-shutter{
   width:64px;height:64px;border-radius:50%;background:#fff;border:4px solid rgba(255,255,255,.5);
@@ -274,17 +288,17 @@ body{
   <div class="modal-sheet">
     <button class="close-x" id="ar-close">✕</button>
     <h2 id="ar-title">ARで会う</h2>
-    <div class="ar-wrap">
+    <div class="ar-wrap" id="ar-wrap">
       <video id="ar-video" autoplay playsinline muted></video>
-      <canvas id="ar-canvas"></canvas>
+      <canvas id="ar-gl"></canvas>
+      <div class="ar-loading" id="ar-loading">3Dモデルを読み込み中…</div>
       <div class="ar-hint-badge" id="ar-hint">カメラを起動しています…</div>
       <div class="ar-overlay-ui">
         <div class="ar-shutter" id="ar-shutter"></div>
       </div>
     </div>
     <p style="font-size:11.5px;color:var(--ink-soft);margin-top:10px;">
-      ※このAR表示は簡易プレースホルダーです。実運用では Phase 2 で制作する「フクイちゃん」の .glb 3Dモデルを
-      A-Frame + AR.js（location-based）で読み込み、実写カメラに重ねて表示します。
+      実写カメラの上に3Dモデルをリアルタイム合成表示しています（three.js使用）。指で画面をドラッグすると、モデルを回転させて色々な角度から見られます。
     </p>
   </div>
 </div>
@@ -314,7 +328,8 @@ const SPOTS = [
     note:"屋外の開けた広場。空が開けておりGPS精度は良好な見込み。",
     arrive:"新幹線を降りたフクイちゃんは、駅前のにぎわいに立ちすくんでいる。足元にはアナログマップに描かれた最初の足跡マークがある。",
     hint:"絆の神様がいる場所を目指そう！（徒歩5分）",
-    ar:"泣きそうなフクイちゃんが出現。「強い絆が集まる赤い神社に向かったみたい！」"
+    ar:"泣きそうなフクイちゃんが出現。「強い絆が集まる赤い神社に向かったみたい！」",
+    model:"assets/models/kodomo.glb"
   },
   {
     id:2, name:"② 北庄城址・柴田神社",
@@ -322,7 +337,8 @@ const SPOTS = [
     note:"境内は木立に囲まれるが比較的開けた区画。",
     arrive:"柴田勝家公とお市の方を祀る「絆の宮」。境内で親恐竜の大きな足跡を発見した。",
     hint:"青い石でできたお城のお堀に向かったよ！（徒歩5分）",
-    ar:"「絆」の歴史や銘菓「瓶割りせんべい」のミニクイズに挑戦。クリアすると親の残したメモ（青い石垣の絵）が解放される。"
+    ar:"博士スタイルのフクイちゃんが登場。「絆」の歴史や銘菓「瓶割りせんべい」のミニクイズに挑戦。クリアすると親の残したメモ（青い石垣の絵）が解放される。",
+    model:"assets/models/rekishi.glb"
   },
   {
     id:3, name:"③ 福井城址（御廊下橋・福の井）",
@@ -330,7 +346,8 @@ const SPOTS = [
     note:"堀に近く周囲に県庁舎など高層構造物あり。反射によるGPSズレに注意。",
     arrive:"綺麗な御廊下橋を渡り城址内へ。福の井のそばで、親恐竜が喉を潤した跡を見つけた。",
     hint:"殿様のお庭（養浩館庭園）へ休みに向かおう！（徒歩10分）",
-    ar:"スマホを井戸にかざすと水面に親の影が映る。「静かな庭園でお休みしてくるね」という音声が流れる。"
+    ar:"ゴーグルをつけたプテラ恐竜がお堀の上を旋回！スマホを井戸にかざすと水面に親の影が映る。「静かな庭園でお休みしてくるね」という音声が流れる。",
+    model:"assets/models/ptera.glb"
   },
   {
     id:4, name:"④ 名勝 養浩館庭園",
@@ -338,7 +355,8 @@ const SPOTS = [
     note:"庭園内は樹木が多く、建物付近でGPS精度が落ちやすい。",
     arrive:"美しい数寄屋造りの屋敷と庭園。池を眺めると、親恐竜が休んだ大きな葉っぱのベッドを発見した。",
     hint:"昭和レトロなおいしいお店が並ぶ商店街へ！（徒歩10分）",
-    ar:"藩主と同じ目線で庭園を観覧するマナー啓発コンテンツ。親恐竜が「子においしいお土産を買いたい」と話していた情報が流れる。"
+    ar:"プテラ恐竜が庭園の上空をゆったり滑空。藩主と同じ目線で庭園を観覧するマナー啓発コンテンツ。親恐竜が「子においしいお土産を買いたい」と話していた情報が流れる。",
+    model:"assets/models/ptera.glb"
   },
   {
     id:5, name:"⑤ 新栄商店街・ガレリア元町",
@@ -346,7 +364,8 @@ const SPOTS = [
     note:"アーケード屋根あり。GPS精度が大きく低下する想定区間。要現地キャリブレーション。",
     arrive:"レトロな商店街を散策。店主から「大きな恐竜が伝統工芸品や銘菓を探していた」と聞いた。",
     hint:"福井駅前のハピリンへ急ごう！（徒歩5分）",
-    ar:"店舗でチェックインすると、おすすめフード（水ようかん等）やクーポンが表示される。「ハピリンにいるよ！」の目撃情報。"
+    ar:"チケットを扇のように広げたトリケラトプス恐竜が登場。店舗でチェックインすると、おすすめフード（水ようかん等）やクーポンが表示される。「ハピリンにいるよ！」の目撃情報。",
+    model:"assets/models/ticket.glb"
   },
   {
     id:6, name:"⑥ ハピリン",
@@ -354,13 +373,19 @@ const SPOTS = [
     note:"多層階の屋内施設。GPSのみでの判定は精度に限界あり。店舗チェックイン等の代替導線を検討。",
     arrive:"2階「福人喜」へ。親恐竜が選んだ伝統工芸品（越前漆器・和紙）や水ようかんが並んでいる。",
     hint:"目の前の恐竜広場へ向かおう！",
-    ar:"ミッション完了で「お福分け」ノベルティ獲得演出。画面に「恐竜広場で待っているよ！」のメッセージ。"
+    ar:"串団子を持った行商スタイルのフクイちゃんが登場。ミッション完了で「お福分け」ノベルティ獲得演出。画面に「恐竜広場で待っているよ！」のメッセージ。",
+    model:"assets/models/dango.glb"
   }
 ];
 const GOAL = {
-  name:"ゴール：恐竜広場",
+  id:"goal",
+  name:"ゴール：恐竜広場（親子の再会）",
+  lat:SPOTS[0].lat, lng:SPOTS[0].lng, radius:25,
+  note:"全6スポットを踏破したら、恐竜広場に戻ってきてね。",
   arrive:"ハピリンを出て恐竜広場へ戻ると、親恐竜のもとへ辿り着いた！",
-  ar:"親子がギューッと抱き合う感動の再会AR演出。コンプリート限定フォトフレーム＆ビジュアルダイアリーを発行。"
+  hint:"",
+  ar:"親子がギューッと抱き合う感動の再会AR演出。コンプリート限定フォトフレーム＆ビジュアルダイアリーを発行。",
+  models:["assets/models/chichi.glb","assets/models/kodomo.glb"]
 };
 
 /* =========================================================
@@ -518,9 +543,37 @@ function renderSpotList(){
     `;
     list.appendChild(card);
   });
+
+  // ゴールカード（全6スポット踏破後、恐竜広場に戻ってきたら解放）
+  const allArrived = SPOTS.every(s => !!progress.arrived[s.id]);
+  let goalDist = null;
+  if(currentPos){
+    goalDist = distanceMeters(currentPos.lat, currentPos.lng, GOAL.lat, GOAL.lng);
+  }
+  const goalHere = allArrived && goalDist !== null && goalDist <= GOAL.radius;
+  const goalCard = document.createElement("div");
+  goalCard.className = "spot-card goal" + (goalHere ? " ready" : "");
+  let goalBody;
+  if(!allArrived){
+    const remain = SPOTS.filter(s => !progress.arrived[s.id]).length;
+    goalBody = `<div class="spot-hint">残り${remain}スポットを踏破すると解放されます。</div>`;
+  }else if(!goalHere){
+    goalBody = `
+      <div class="spot-meta"><span class="spot-dist">${goalDist!==null ? "恐竜広場まで約"+Math.round(goalDist)+"m" : "位置情報待ち"}</span></div>
+      <div class="spot-hint">${GOAL.note}</div>`;
+  }else{
+    goalBody = `
+      <div class="spot-hint">${GOAL.note}</div>
+      <button class="spot-btn" id="btn-open-goal">親子の再会を見る</button>`;
+  }
+  goalCard.innerHTML = `<div class="spot-num">🏁</div><div class="spot-body"><p class="spot-name">${GOAL.name}</p>${goalBody}</div>`;
+  list.appendChild(goalCard);
+
   list.querySelectorAll("[data-open]").forEach(btn=>{
-    btn.addEventListener("click", ()=> openStory(parseInt(btn.dataset.open)));
+    btn.addEventListener("click", ()=> openStory(SPOTS.find(s=>s.id===parseInt(btn.dataset.open))));
   });
+  const goalBtn = document.getElementById("btn-open-goal");
+  if(goalBtn) goalBtn.addEventListener("click", ()=> openStory(GOAL));
 }
 
 /* 到着後にもう一度描画し直せるよう定期チェック */
@@ -529,11 +582,12 @@ setInterval(()=>{ if(currentPos) renderSpotList(); }, 4000);
 /* =========================================================
    ストーリーモーダル
 ========================================================= */
-function openStory(id){
-  activeSpot = SPOTS.find(s=>s.id===id);
-  document.getElementById("story-title").textContent = activeSpot.name;
+function openStory(spot){
+  activeSpot = spot;
+  document.getElementById("story-title").textContent = spot.name;
   document.getElementById("story-body").innerHTML =
-    `<p>${activeSpot.arrive}</p><p style="color:var(--clay-700);font-weight:500;">${activeSpot.hint}</p>`;
+    `<p>${spot.arrive}</p>${spot.hint ? `<p style="color:var(--clay-700);font-weight:500;">${spot.hint}</p>` : ""}`;
+  document.getElementById("story-ar-btn").textContent = spot.models ? "感動の再会をARで見る" : "ARでフクイちゃんに会う";
   document.getElementById("story-modal").classList.add("open");
 }
 document.getElementById("story-close").addEventListener("click", ()=>{
@@ -545,69 +599,50 @@ document.getElementById("story-ar-btn").addEventListener("click", ()=>{
 });
 
 /* =========================================================
-   AR画面（簡易プレースホルダー実装）
-   本番では A-Frame + AR.js(location-based) の
-   <a-scene arjs> + gps-entity-place に置き換え、
-   Phase2で制作する .glb モデルをそこに読み込む。
+   AR画面（本番実装: three.js による3Dモデルのカメラ合成表示）
+   スポットごとの .glb モデルを読み込み、カメラ映像の上に
+   リアルタイム描画する。モデル読み込み・レンダリングは
+   window.AR3D（別途 <script type="module"> で定義）に委譲。
 ========================================================= */
 let arStream = null;
 function openAR(spot){
-  document.getElementById("ar-title").textContent = spot.name + " のフクイちゃん";
+  document.getElementById("ar-title").textContent = spot.name;
   document.getElementById("ar-hint").textContent = spot.ar;
   document.getElementById("ar-modal").classList.add("open");
   const video = document.getElementById("ar-video");
+  const canvas = document.getElementById("ar-gl");
+
   navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}, audio:false})
     .then(stream=>{
       arStream = stream;
       video.srcObject = stream;
-      drawAROverlay();
     })
     .catch(err=>{
-      document.getElementById("ar-hint").textContent = "カメラを利用できません（" + err.message + "）。本番では実機カメラで動作します。";
+      document.getElementById("ar-hint").textContent = "カメラを利用できません（" + err.message + "）。実機カメラで動作します。";
     });
-}
-function drawAROverlay(){
-  const canvas = document.getElementById("ar-canvas");
-  const ctx = canvas.getContext("2d");
-  function resize(){
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
+
+  const modelPaths = spot.models ? spot.models : [spot.model];
+  if(window.AR3D){
+    window.AR3D.open(canvas, modelPaths, document.getElementById("ar-loading"));
   }
-  resize();
-  window.addEventListener("resize", resize);
-  let t = 0;
-  function loop(){
-    if(!document.getElementById("ar-modal").classList.contains("open")) return;
-    ctx.clearRect(0,0,canvas.width, canvas.height);
-    const bob = Math.sin(t/25) * 8;
-    const cx = canvas.width/2, cy = canvas.height*0.62 + bob;
-    ctx.font = (canvas.width*0.28) + "px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("🦕", cx, cy);
-    ctx.font = "13px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.9)";
-    ctx.fillText("フクイちゃん（仮モデル / Phase2で.glbに差替）", cx, cy + canvas.height*0.14);
-    t++;
-    requestAnimationFrame(loop);
-  }
-  loop();
 }
 function closeAR(){
   document.getElementById("ar-modal").classList.remove("open");
   if(arStream){ arStream.getTracks().forEach(t=>t.stop()); arStream = null; }
+  if(window.AR3D) window.AR3D.close();
 }
 document.getElementById("ar-close").addEventListener("click", closeAR);
 
 document.getElementById("ar-shutter").addEventListener("click", ()=>{
   const video = document.getElementById("ar-video");
-  const overlay = document.getElementById("ar-canvas");
+  const gl = document.getElementById("ar-gl");
   const out = document.createElement("canvas");
-  out.width = overlay.clientWidth; out.height = overlay.clientHeight;
+  out.width = gl.clientWidth; out.height = gl.clientHeight;
   const octx = out.getContext("2d");
   if(video.videoWidth){
     octx.drawImage(video, 0,0, out.width, out.height);
   }
-  octx.drawImage(overlay, 0,0, out.width, out.height);
+  octx.drawImage(gl, 0,0, out.width, out.height);
   const dataUrl = out.toDataURL("image/png");
   album.unshift({id:Date.now(), spot: activeSpot ? activeSpot.name : "?", img: dataUrl});
   saveAlbum(album);
@@ -661,6 +696,150 @@ if("serviceWorker" in navigator){
     navigator.serviceWorker.register("sw.js").catch(()=>{});
   });
 }
+</script>
+
+<!-- =========================================================
+     AR 3Dビューア（three.js）
+     カメラ映像の上に .glb モデルをリアルタイム合成表示する。
+     window.AR3D として openAR()/closeAR() から呼び出される。
+========================================================= -->
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "./vendor/three/examples/jsm/loaders/GLTFLoader.js";
+
+let renderer = null, scene = null, camera = null, group = null, rafId = null;
+let dragEnabled = false, dragging = false, dragStartX = 0, dragStartRotY = 0;
+const loader = new GLTFLoader();
+const modelCache = {};
+
+function ensureRenderer(canvas){
+  if(renderer) return;
+  renderer = new THREE.WebGLRenderer({canvas, alpha:true, antialias:true, preserveDrawingBuffer:true});
+  renderer.setClearColor(0x000000, 0);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(35, 1, 0.01, 100);
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8a7256, 2.4));
+  const dir = new THREE.DirectionalLight(0xffffff, 2.2);
+  dir.position.set(2, 4, 3);
+  scene.add(dir);
+  const dir2 = new THREE.DirectionalLight(0xffffff, 1.0);
+  dir2.position.set(-2, 1, -3);
+  scene.add(dir2);
+}
+
+function fitCanvas(canvas){
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if(w === 0 || h === 0) return;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+
+function loadModel(path){
+  return new Promise((resolve, reject)=>{
+    if(modelCache[path]){
+      resolve(modelCache[path].clone(true));
+      return;
+    }
+    loader.load(path, (gltf)=>{
+      modelCache[path] = gltf.scene;
+      resolve(gltf.scene.clone(true));
+    }, undefined, (err)=> reject(err));
+  });
+}
+
+function setupDrag(canvas){
+  if(dragEnabled) return;
+  dragEnabled = true;
+  canvas.style.pointerEvents = "auto";
+  canvas.addEventListener("pointerdown", (e)=>{
+    if(!group) return;
+    dragging = true;
+    dragStartX = e.clientX;
+    dragStartRotY = group.rotation.y;
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener("pointermove", (e)=>{
+    if(!dragging || !group) return;
+    const dx = e.clientX - dragStartX;
+    group.rotation.y = dragStartRotY + dx * 0.012;
+  });
+  const endDrag = ()=>{ dragging = false; };
+  canvas.addEventListener("pointerup", endDrag);
+  canvas.addEventListener("pointercancel", endDrag);
+  canvas.addEventListener("pointerleave", endDrag);
+}
+
+async function open(canvas, modelPaths, loadingEl){
+  ensureRenderer(canvas);
+  setupDrag(canvas);
+  fitCanvas(canvas);
+
+  if(group){ scene.remove(group); group = null; }
+  group = new THREE.Group();
+  scene.add(group);
+
+  if(loadingEl) loadingEl.style.display = "flex";
+  try{
+    const models = await Promise.all(modelPaths.map(loadModel));
+    models.forEach((obj, i)=>{
+      const box = new THREE.Box3().setFromObject(obj);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z) || 1;
+      const scale = 1.3 / maxDim;
+      obj.scale.setScalar(scale);
+      obj.position.x -= center.x * scale;
+      obj.position.y -= box.min.y * scale;
+      obj.position.z -= center.z * scale;
+      if(models.length > 1){
+        const spread = 0.9;
+        obj.position.x += (i - (models.length - 1) / 2) * spread;
+        obj.rotation.y = (i === 0 ? 0.3 : -0.3);
+      }
+      group.add(obj);
+    });
+
+    const gbox = new THREE.Box3().setFromObject(group);
+    const gsize = gbox.getSize(new THREE.Vector3());
+    const gcenter = gbox.getCenter(new THREE.Vector3());
+    const dist = Math.max(gsize.x, gsize.y, gsize.z) * 1.7 + 1.1;
+    camera.position.set(gcenter.x, gcenter.y + gsize.y * 0.18, dist);
+    camera.lookAt(gcenter.x, gcenter.y + gsize.y * 0.08, gcenter.z);
+  }catch(err){
+    if(loadingEl){ loadingEl.textContent = "3Dモデルの読み込みに失敗しました"; }
+    console.error("AR3D load error", err);
+    return;
+  }finally{
+    if(loadingEl) loadingEl.style.display = "none";
+  }
+
+  let t = 0;
+  cancelAnimationFrame(rafId);
+  function loop(){
+    rafId = requestAnimationFrame(loop);
+    t += 0.016;
+    if(group && !dragging){
+      group.rotation.y = Math.sin(t * 0.6) * 0.35;
+      group.position.y = Math.sin(t * 1.6) * 0.025;
+    }
+    fitCanvas(canvas);
+    renderer.render(scene, camera);
+  }
+  loop();
+}
+
+function close(){
+  cancelAnimationFrame(rafId);
+  rafId = null;
+  if(group && scene){ scene.remove(group); group = null; }
+}
+
+window.AR3D = { open, close };
 </script>
 </body>
 </html>
