@@ -231,10 +231,10 @@ body{
       <p>北陸新幹線で福井駅に着いたばかりの子恐竜「フクイちゃん」。<br>駅前のにぎわいに驚いて、お父さん・お母さんとはぐれてしまいました。</p>
       <div class="story-box">
         <b>「一緒に、お父さん(お母さん)を探して！」</b><br>
-        紙の地図を片手に、6つのスポットをめぐりながら親子の足跡を追いかけよう。各スポットに着くと、フクイちゃんがARで飛び出してくるよ。
+        紙の地図を片手に、6つのスポットをめぐりながら親子の足跡を追いかけよう。スポットに近づくと、フクイちゃんが自動でARで飛び出してくるよ。
       </div>
-      <button class="btn btn-primary" id="btn-start">紙マップのQRを読み込んで冒険をはじめる</button>
-      <button class="btn btn-ghost" id="btn-skip-qr" style="margin-top:8px;">(開発中) QRなしでスタート</button>
+      <button class="btn btn-primary" id="btn-start">位置情報をONにして冒険をはじめる</button>
+      <button class="btn btn-ghost" id="btn-preview" style="margin-top:8px;">(プレビュー) 位置情報なしで地図だけ見る</button>
       <div class="status-line">
         <span class="dot" id="dot-gps"></span><span id="txt-gps">位置情報: 未確認</span>
       </div>
@@ -455,12 +455,12 @@ document.getElementById("btn-start").addEventListener("click", ()=>{
   progress.started = true; saveProgress(progress);
   startGPS();
   showScreen("screen-map");
-  showToast("QRを読み込みました。GPS判定で自動進行します");
+  showToast("位置情報の使用を開始しました。スポットに近づくと自動で反応します");
 });
-document.getElementById("btn-skip-qr").addEventListener("click", ()=>{
-  progress.started = true; saveProgress(progress);
-  startGPS();
+document.getElementById("btn-preview").addEventListener("click", ()=>{
+  // プレビュー用: 位置情報を使わず画面だけ確認したい場合（GPSは起動しない）
   showScreen("screen-map");
+  showToast("プレビューモード：位置情報はオフのままです");
 });
 
 /* =========================================================
