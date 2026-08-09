@@ -293,12 +293,15 @@ body{
       <canvas id="ar-gl"></canvas>
       <div class="ar-loading" id="ar-loading">3Dモデルを読み込み中…</div>
       <div class="ar-hint-badge" id="ar-hint">カメラを起動しています…</div>
+      <button class="btn btn-primary" id="ar-enable-motion" style="display:none;position:absolute;left:16px;right:16px;bottom:70px;width:auto;">
+        スマホの動きを有効にして探す
+      </button>
       <div class="ar-overlay-ui">
         <div class="ar-shutter" id="ar-shutter"></div>
       </div>
     </div>
-    <p style="font-size:11.5px;color:var(--ink-soft);margin-top:10px;">
-      実写カメラの上に3Dモデルをリアルタイム合成表示しています（three.js使用）。フクイちゃんはその場に立っているので、スマホの向きを変えると見える角度が変わります。指で画面をドラッグすると、モデル自体を回転させることもできます。
+    <p style="font-size:11.5px;color:var(--ink-soft);margin-top:10px;" id="ar-caption">
+      実写カメラの上に3Dモデルをリアルタイム合成表示しています（three.js使用）。指で画面をドラッグすると、モデルを回転させて色々な角度から見られます。
     </p>
   </div>
 </div>
@@ -605,12 +608,19 @@ document.getElementById("story-ar-btn").addEventListener("click", ()=>{
    window.AR3D（別途 <script type="module"> で定義）に委譲。
 ========================================================= */
 let arStream = null;
+
+const AR_CAPTION_DRAG = "実写カメラの上に3Dモデルをリアルタイム合成表示しています（three.js使用）。指で画面をドラッグすると、モデルを回転させて色々な角度から見られます。";
+const AR_CAPTION_MOTION = "ポケモンGOのように、恐竜はその場にとどまります。スマホを動かして、あたりを見回して探してみてね。";
+
 function openAR(spot){
   document.getElementById("ar-title").textContent = spot.name;
   document.getElementById("ar-hint").textContent = spot.ar;
+  document.getElementById("ar-caption").textContent = AR_CAPTION_DRAG;
   document.getElementById("ar-modal").classList.add("open");
   const video = document.getElementById("ar-video");
   const canvas = document.getElementById("ar-gl");
+  const motionBtn = document.getElementById("ar-enable-motion");
+  motionBtn.style.display = "none";
 
   navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}, audio:false})
     .then(stream=>{
@@ -623,13 +633,36 @@ function openAR(spot){
 
   const modelPaths = spot.models ? spot.models : [spot.model];
   if(window.AR3D){
-    window.AR3D.open(canvas, modelPaths, document.getElementById("ar-loading"));
+    window.AR3D.open(canvas, modelPaths, document.getElementById("ar-loading")).then(()=>{
+      if(!window.AR3D.isOrientationSupported()) return;
+      if(window.AR3D.needsExplicitPermission()){
+        // iOSはユーザーの明示的なタップ操作からしか許可要求できないため、ボタンを出す
+        motionBtn.style.display = "block";
+      }else{
+        // Androidなど、許可ダイアログ不要な端末は自動で有効化
+        window.AR3D.enableOrientation().then(ok=>{
+          if(ok) document.getElementById("ar-caption").textContent = AR_CAPTION_MOTION;
+        });
+      }
+    });
   }
 }
+document.getElementById("ar-enable-motion").addEventListener("click", async ()=>{
+  if(!window.AR3D) return;
+  const ok = await window.AR3D.enableOrientation();
+  const motionBtn = document.getElementById("ar-enable-motion");
+  if(ok){
+    motionBtn.style.display = "none";
+    document.getElementById("ar-caption").textContent = AR_CAPTION_MOTION;
+  }else{
+    showToast("モーションの利用が許可されませんでした。指でのドラッグ操作をお使いください。");
+    motionBtn.style.display = "none";
+  }
+});
 function closeAR(){
   document.getElementById("ar-modal").classList.remove("open");
   if(arStream){ arStream.getTracks().forEach(t=>t.stop()); arStream = null; }
-  if(window.AR3D) window.AR3D.close();
+  if(window.AR3D){ window.AR3D.close(); window.AR3D.disableOrientation(); }
 }
 document.getElementById("ar-close").addEventListener("click", closeAR);
 
@@ -712,12 +745,17 @@ let dragEnabled = false, dragging = false, dragStartX = 0, dragStartRotY = 0;
 const loader = new GLTFLoader();
 const modelCache = {};
 
-// ポケモンGO方式: モデルごとの自動フィットをやめ、キャラクター/カメラとも固定値にする。
-// (以前はモデルの最大寸法に合わせて自動スケール・自動カメラ距離を計算していたが、
-//  各モデルの「最大寸法」がキャラごとに違う軸[縦/横]になっており、見た目のサイズが
-//  キャラによってバラつく原因になっていた。)
-// キャラクターごとのサイズ差(子ども恐竜=フクイちゃん本体は小さく、大人の恐竜キャラは
-// 大きく)を表現するための固定スケール表。数値を変えるだけで見た目の大きさを調整できる。
+/* --- 固定パラメータ：モデルはカメラの前方に常に同じ位置・同じ高さで置く --- */
+const EYE_Y = 0.55;          // カメラの目線の高さ
+const MODEL_Z_SINGLE = -2.5; // 1体表示のときの距離
+const MODEL_Z_MULTI = -3.3;  // 2体表示（ゴール演出）のときの距離
+const LOOK_Y = 0.58;         // ドラッグ操作モード時に見る高さ
+
+/* --- キャラクターごとの固定サイズ ---
+   子ども恐竜(kodomo.glb = フクイちゃん本体)は小さく、大人の恐竜キャラは
+   大きく表示する。以前は全キャラを同じ高さに正規化していたが、それだと
+   体格差が消えて「子どもが親と同じ大きさ」に見えてしまうため、
+   キャラクターごとに固定スケールを指定する方式にしている。 */
 const MODEL_SCALES = {
   "kodomo.glb": 0.55,
   "chichi.glb": 1.05,
@@ -731,72 +769,72 @@ function scaleForModel(path){
   const name = path.split("/").pop();
   return MODEL_SCALES[name] !== undefined ? MODEL_SCALES[name] : DEFAULT_SCALE;
 }
-const CAMERA_POSITION = new THREE.Vector3(0, 0.55, 3.0);
-const CAMERA_LOOKAT = new THREE.Vector3(0, 0.42, 0);
-const SINGLE_MODEL_OFFSET_X = 0.28; // 顔にかぶらないよう中心から少し横にずらす
-const PAIR_SPREAD_X = 0.62;
-const baseQuaternion = new THREE.Quaternion();
+const SINGLE_MODEL_OFFSET_X = 0.28; // 1体表示のとき、顔にかぶらないよう中心から少し横にずらす
 
-/* =========================================================
-   ジャイロ(端末の向き)によるワールドロックAR
-   ポケモンGOのように、キャラクターを実空間の一点に固定しておき、
-   スマホを振ったり回したりすると見える角度が変わるようにする。
-   （位置トラッキングまではしないため「その場で振り向く」だけの
-   簡易ワールドロックだが、体感としては大きく改善する）
-========================================================= */
-let orientationEnabled = false;
-let orientationListenerAdded = false;
-let referenceQuaternion = null;
-const deviceQuaternion = new THREE.Quaternion();
-const relativeQuaternion = new THREE.Quaternion();
+/* --- ジャイロセンサー（スマホの向き）でカメラを動かす仕組み ---
+   ポケモンGOのように「キャラクターはその場に固定」「スマホを動かすと
+   画面の中の見える範囲が変わる」という体験にするための処理。
+   位置トラッキング（SLAM）は行わないため、正確なワールド座標固定ではないが、
+   スマホの向きに応じて視点を回転させることで、その場に留まっている
+   ような見た目を再現する。 */
+let orientationSupported = "DeviceOrientationEvent" in window;
+let orientationActive = false;
+let deviceQuaternion = new THREE.Quaternion();
+let baseQuaternionInverse = null;
+const _tmpEuler = new THREE.Euler();
+const _screenTransform = new THREE.Quaternion();
+const _worldTransform = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5));
+const _axisZ = new THREE.Vector3(0, 0, 1);
 
-const _zee = new THREE.Vector3(0, 0, 1);
-const _euler = new THREE.Euler();
-const _q0 = new THREE.Quaternion();
-const _q1 = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5)); // -90deg around x
-
-function screenOrientationAngle(){
+function getScreenAngle(){
   if(screen.orientation && typeof screen.orientation.angle === "number") return screen.orientation.angle;
   if(typeof window.orientation === "number") return window.orientation;
   return 0;
 }
 
-function updateDeviceQuaternion(alpha, beta, gamma, out){
-  const x = beta ? THREE.MathUtils.degToRad(beta) : 0;
-  const y = gamma ? THREE.MathUtils.degToRad(gamma) : 0;
-  const z = alpha ? THREE.MathUtils.degToRad(alpha) : 0;
-  const o = THREE.MathUtils.degToRad(screenOrientationAngle());
-  _euler.set(x, y, -z, "YXZ");
-  out.setFromEuler(_euler);
-  out.multiply(_q1);
-  out.multiply(_q0.setFromAxisAngle(_zee, -o));
-  return out;
+function computeDeviceQuaternion(alpha, beta, gamma){
+  const d2r = Math.PI / 180;
+  _tmpEuler.set(beta * d2r, alpha * d2r, -gamma * d2r, "YXZ");
+  const q = new THREE.Quaternion().setFromEuler(_tmpEuler);
+  q.multiply(_worldTransform);
+  _screenTransform.setFromAxisAngle(_axisZ, -getScreenAngle() * d2r);
+  q.multiply(_screenTransform);
+  return q;
 }
 
-function onDeviceOrientation(e){
-  if(e.alpha === null) return; // センサー値が取れない環境
-  updateDeviceQuaternion(e.alpha, e.beta, e.gamma, deviceQuaternion);
-  if(referenceQuaternion === null){
-    // AR起動時にスマホが向いていた方向を「正面」として基準化する
-    referenceQuaternion = deviceQuaternion.clone().invert();
+function handleDeviceOrientation(e){
+  if(e.alpha === null || e.alpha === undefined) return;
+  deviceQuaternion = computeDeviceQuaternion(e.alpha, e.beta || 0, e.gamma || 0);
+  if(!baseQuaternionInverse){
+    // ARを開いた最初の向きを「正面＝モデルが見える向き」として基準化する
+    baseQuaternionInverse = deviceQuaternion.clone().invert();
   }
-  orientationEnabled = true;
 }
 
-async function enableOrientationTracking(){
-  if(!orientationListenerAdded){
-    window.addEventListener("deviceorientation", onDeviceOrientation);
-    orientationListenerAdded = true;
-  }
-  if(typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function"){
-    try{
-      const res = await DeviceOrientationEvent.requestPermission();
-      if(res !== "granted") return false;
-    }catch(e){
-      return false;
+async function enableOrientation(){
+  if(!orientationSupported) return false;
+  try{
+    if(typeof DeviceOrientationEvent.requestPermission === "function"){
+      const result = await DeviceOrientationEvent.requestPermission();
+      if(result !== "granted") return false;
     }
+  }catch(err){
+    return false;
   }
+  baseQuaternionInverse = null;
+  window.addEventListener("deviceorientation", handleDeviceOrientation);
+  orientationActive = true;
   return true;
+}
+
+function disableOrientation(){
+  window.removeEventListener("deviceorientation", handleDeviceOrientation);
+  orientationActive = false;
+  baseQuaternionInverse = null;
+}
+
+function needsExplicitPermission(){
+  return orientationSupported && typeof DeviceOrientationEvent.requestPermission === "function";
 }
 
 function ensureRenderer(canvas){
@@ -806,7 +844,7 @@ function ensureRenderer(canvas){
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(35, 1, 0.01, 100);
+  camera = new THREE.PerspectiveCamera(45, 1, 0.01, 100);
 
   scene.add(new THREE.HemisphereLight(0xffffff, 0x8a7256, 2.4));
   const dir = new THREE.DirectionalLight(0xffffff, 2.2);
@@ -839,19 +877,20 @@ function loadModel(path){
   });
 }
 
+/* ドラッグ回転は、ジャイロが使えない端末（PCなど）向けのフォールバック操作 */
 function setupDrag(canvas){
   if(dragEnabled) return;
   dragEnabled = true;
   canvas.style.pointerEvents = "auto";
   canvas.addEventListener("pointerdown", (e)=>{
-    if(!group) return;
+    if(!group || orientationActive) return;
     dragging = true;
     dragStartX = e.clientX;
     dragStartRotY = group.rotation.y;
     canvas.setPointerCapture(e.pointerId);
   });
   canvas.addEventListener("pointermove", (e)=>{
-    if(!dragging || !group) return;
+    if(!dragging || !group || orientationActive) return;
     const dx = e.clientX - dragStartX;
     group.rotation.y = dragStartRotY + dx * 0.012;
   });
@@ -865,11 +904,7 @@ async function open(canvas, modelPaths, loadingEl){
   ensureRenderer(canvas);
   setupDrag(canvas);
   fitCanvas(canvas);
-
-  // 毎回AR起動時に「今スマホが向いている方向」を正面として撮り直す
-  referenceQuaternion = null;
-  orientationEnabled = false;
-  enableOrientationTracking();
+  baseQuaternionInverse = null;
 
   if(group){ scene.remove(group); group = null; }
   group = new THREE.Group();
@@ -878,18 +913,18 @@ async function open(canvas, modelPaths, loadingEl){
   if(loadingEl) loadingEl.style.display = "flex";
   try{
     const models = await Promise.all(modelPaths.map(loadModel));
+    const modelZ = models.length > 1 ? MODEL_Z_MULTI : MODEL_Z_SINGLE;
     models.forEach((obj, i)=>{
-      // モデル固有の原点ズレ(中心が原点にない/足が地面についていない)だけ補正し、
-      // カメラ位置は常に固定。大きさだけはキャラクター表(MODEL_SCALES)に従う。
       const box = new THREE.Box3().setFromObject(obj);
       const center = box.getCenter(new THREE.Vector3());
-      const s = scaleForModel(modelPaths[i]);
-      obj.scale.setScalar(s);
-      obj.position.x -= center.x * s;
-      obj.position.y -= box.min.y * s;
-      obj.position.z -= center.z * s;
+      const scale = scaleForModel(modelPaths[i]);
+      obj.scale.setScalar(scale);
+      obj.position.x -= center.x * scale;
+      obj.position.y -= box.min.y * scale;
+      obj.position.z -= center.z * scale;
       if(models.length > 1){
-        obj.position.x += (i - (models.length - 1) / 2) * PAIR_SPREAD_X;
+        const spread = 0.75;
+        obj.position.x += (i - (models.length - 1) / 2) * spread;
         obj.rotation.y = (i === 0 ? 0.3 : -0.3);
       }else{
         obj.position.x += SINGLE_MODEL_OFFSET_X;
@@ -897,9 +932,10 @@ async function open(canvas, modelPaths, loadingEl){
       group.add(obj);
     });
 
-    camera.position.copy(CAMERA_POSITION);
-    camera.lookAt(CAMERA_LOOKAT);
-    baseQuaternion.copy(camera.quaternion);
+    // モデルはカメラの正面・固定距離に配置。カメラ自体は原点で固定。
+    group.position.set(0, 0, modelZ);
+    camera.position.set(0, EYE_Y, 0);
+    camera.lookAt(0, LOOK_Y, modelZ);
   }catch(err){
     if(loadingEl){ loadingEl.textContent = "3Dモデルの読み込みに失敗しました"; }
     console.error("AR3D load error", err);
@@ -911,10 +947,11 @@ async function open(canvas, modelPaths, loadingEl){
   cancelAnimationFrame(rafId);
   function loop(){
     rafId = requestAnimationFrame(loop);
-    if(orientationEnabled && referenceQuaternion){
-      // 基準向きからの相対回転をカメラに適用 → スマホを振ると視点が変わる
-      relativeQuaternion.copy(referenceQuaternion).multiply(deviceQuaternion);
-      camera.quaternion.copy(baseQuaternion).multiply(relativeQuaternion);
+    if(orientationActive && baseQuaternionInverse){
+      // 「ARを開いた瞬間の向き」を基準に、その後の回転差分だけをカメラに適用する。
+      // → 開いた瞬間はモデルが正面に見え、スマホを動かすとその分だけ視界が回転する。
+      const rel = baseQuaternionInverse.clone().multiply(deviceQuaternion);
+      camera.quaternion.copy(rel);
     }
     fitCanvas(canvas);
     renderer.render(scene, camera);
@@ -928,7 +965,13 @@ function close(){
   if(group && scene){ scene.remove(group); group = null; }
 }
 
-window.AR3D = { open, close };
+window.AR3D = {
+  open, close,
+  enableOrientation, disableOrientation,
+  isOrientationSupported: ()=> orientationSupported,
+  needsExplicitPermission,
+  isOrientationActive: ()=> orientationActive,
+};
 </script>
 </body>
 </html>
