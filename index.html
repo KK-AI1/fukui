@@ -392,6 +392,49 @@ const GOAL = {
 };
 
 /* =========================================================
+   滞在ログ（運営者だけが見られる裏側の計測。画面には一切表示しない）
+   スポットに到着するたびに「匿名セッションID・スポット名・時刻」だけを
+   外部エンドポイント（Google Apps Script + スプレッドシート想定）へ
+   静かに送信する。UIやトースト通知は一切出さず、失敗しても無視する。
+   運用手順は analytics/apps-script.gs を参照。
+   LOG_ENDPOINT が空文字のうちは何もしない（未設定でもアプリは壊れない）。
+========================================================= */
+const LOG_ENDPOINT = ""; // ← Google Apps ScriptのウェブアプリURLをここに設定する
+const LOG_SESSION_KEY = "dino_map_session_id";
+
+function getSessionId(){
+  let id = localStorage.getItem(LOG_SESSION_KEY);
+  if(!id){
+    id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now() + "-" + Math.random().toString(16).slice(2));
+    localStorage.setItem(LOG_SESSION_KEY, id);
+  }
+  return id;
+}
+
+function logVisit(event, spot){
+  if(!LOG_ENDPOINT) return;
+  const payload = {
+    event,        // "start" | "arrive" | "goal"
+    spotId: spot ? spot.id : null,
+    spotName: spot ? spot.name : null,
+    timestamp: new Date().toISOString(),
+    sessionId: getSessionId(),
+  };
+  try{
+    // Content-Typeをtext/plainにすることで、Apps Script側のCORSプリフライト
+    // エラーを避けつつJSON文字列をそのまま送る（Apps Script側のよくある回避策）。
+    const blob = new Blob([JSON.stringify(payload)], {type:"text/plain"});
+    if(navigator.sendBeacon){
+      navigator.sendBeacon(LOG_ENDPOINT, blob);
+    }else{
+      fetch(LOG_ENDPOINT, {method:"POST", mode:"no-cors", body: blob}).catch(()=>{});
+    }
+  }catch(e){
+    // 計測の失敗でユーザー体験を損なわないよう、ここで握りつぶす
+  }
+}
+
+/* =========================================================
    状態管理（localStorage永続化）
 ========================================================= */
 const STORAGE_KEY = "dino_map_progress_v1";
@@ -481,6 +524,7 @@ document.querySelectorAll(".tab").forEach(t=>{
 
 document.getElementById("btn-start").addEventListener("click", ()=>{
   progress.started = true; saveProgress(progress);
+  logVisit("start", SPOTS[0]);
   startGPS();
   showScreen("screen-map");
   showToast("位置情報の使用を開始しました。スポットに近づくと自動で反応します");
@@ -528,6 +572,7 @@ function renderSpotList(){
     if(here && !arrived){
       progress.arrived[spot.id] = true;
       saveProgress(progress);
+      logVisit("arrive", spot);
       showToast(spot.name + " に到着しました！");
     }
     const card = document.createElement("div");
@@ -554,6 +599,11 @@ function renderSpotList(){
     goalDist = distanceMeters(currentPos.lat, currentPos.lng, GOAL.lat, GOAL.lng);
   }
   const goalHere = allArrived && goalDist !== null && goalDist <= GOAL.radius;
+  if(goalHere && !progress.goalLogged){
+    progress.goalLogged = true;
+    saveProgress(progress);
+    logVisit("goal", GOAL);
+  }
   const goalCard = document.createElement("div");
   goalCard.className = "spot-card goal" + (goalHere ? " ready" : "");
   let goalBody;
