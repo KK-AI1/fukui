@@ -426,7 +426,7 @@ const GOAL = {
   arrive:"ハピリンを出て恐竜広場へ戻ると、親恐竜のもとへ辿り着いた！",
   hint:"",
   ar:"親子がギューッと抱き合う感動の再会AR演出。",
-  models:["assets/models/chichi.glb","assets/models/kodomo.glb"]
+  model:"assets/models/family_hug.glb"
 };
 
 /* =========================================================
@@ -878,7 +878,7 @@ function openStory(spot){
   document.getElementById("story-title").textContent = spot.name;
   document.getElementById("story-body").innerHTML =
     `<p>${spot.arrive}</p>${spot.hint ? `<p style="color:var(--clay-700);font-weight:500;">${spot.hint}</p>` : ""}`;
-  document.getElementById("story-ar-btn").textContent = spot.models ? "感動の再会をARで見る" : "ARでフクイちゃんに会う";
+  document.getElementById("story-ar-btn").textContent = spot.id === "goal" ? "感動の再会をARで見る" : "ARでフクイちゃんに会う";
   document.getElementById("story-modal").classList.add("open");
 }
 document.getElementById("story-close").addEventListener("click", ()=>{
@@ -919,9 +919,9 @@ function openAR(spot){
       document.getElementById("ar-hint").textContent = "カメラを利用できません（" + err.message + "）。実機カメラで動作します。";
     });
 
-  const modelPaths = spot.models ? spot.models : [spot.model];
+  const modelPaths = [spot.model];
   if(window.AR3D){
-    window.AR3D.open(canvas, modelPaths, document.getElementById("ar-loading")).then(()=>{
+    window.AR3D.open(canvas, modelPaths, document.getElementById("ar-loading"), {center: spot.id === "goal"}).then(()=>{
       if(!window.AR3D.isOrientationSupported()) return;
       if(window.AR3D.needsExplicitPermission()){
         // iOSはユーザーの明示的なタップ操作からしか許可要求できないため、ボタンを出す
@@ -1051,6 +1051,7 @@ const MODEL_SCALES = {
   "ptera.glb": 1.05,
   "ticket.glb": 1.05,
   "dango.glb": 1.05,
+  "family_hug.glb": 1.05,
 };
 const DEFAULT_SCALE = 0.85;
 function scaleForModel(path){
@@ -1188,7 +1189,8 @@ function setupDrag(canvas){
   canvas.addEventListener("pointerleave", endDrag);
 }
 
-async function open(canvas, modelPaths, loadingEl){
+async function open(canvas, modelPaths, loadingEl, options){
+  const centerOnly = !!(options && options.center);
   ensureRenderer(canvas);
   setupDrag(canvas);
   fitCanvas(canvas);
@@ -1214,7 +1216,7 @@ async function open(canvas, modelPaths, loadingEl){
         const spread = 0.75;
         obj.position.x += (i - (models.length - 1) / 2) * spread;
         obj.rotation.y = (i === 0 ? 0.3 : -0.3);
-      }else{
+      }else if(!centerOnly){
         obj.position.x += SINGLE_MODEL_OFFSET_X;
       }
       group.add(obj);
