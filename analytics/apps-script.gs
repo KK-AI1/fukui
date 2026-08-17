@@ -1,11 +1,11 @@
 /**
- * フクイちゃんとまいごの大冒険 - 滞在ログ受信用 Google Apps Script
+ * フクイちゃんとまいごの大冒険 - 滞在ログ＋アンケート受信用 Google Apps Script
  *
- * index.html から送られてくる「スポット到着イベント」を受け取り、
- * 紐づけたGoogleスプレッドシートに1行ずつ記録する。
+ * index.html から送られてくる「スポット到着イベント」と「アンケート回答」を
+ * 受け取り、紐づけたGoogleスプレッドシートに記録する。
  * ユーザーの画面には一切表示されず、このスプレッドシートを見る人（運営者）だけが確認できる。
  *
- * ----- セットアップ手順 -----
+ * ----- セットアップ手順（初回のみ） -----
  * 1. 新規Googleスプレッドシートを作成する（例: 「フクイちゃんマップ 滞在ログ」）。
  * 2. メニューの「拡張機能」→「Apps Script」を開き、既定の Code.gs の中身を
  *    このファイルの内容にすべて置き換えて保存する。
@@ -16,23 +16,29 @@
  *    → 「デプロイ」を押し、表示されたウェブアプリのURLをコピーする。
  * 4. index.html 内の `const LOG_ENDPOINT = "";` の "" の部分に、
  *    コピーしたURLを貼り付ける（例: LOG_ENDPOINT = "https://script.google.com/macros/s/xxxx/exec"）。
- * 5. アプリ側でスタートボタンを押したり、スポットに到着したりするたびに、
- *    このスプレッドシートに自動で行が追加されるようになる。
  *
- * ----- 記録される列 -----
- * A: receivedAt   … サーバー（Google側）が受信した時刻
- * B: timestamp    … スマホ側で記録した時刻（ISO 8601形式）
- * C: event        … "start"（冒険開始） / "arrive"（スポット到着） / "goal"（ゴール到着）
- * D: spotId       … スポット番号（1〜6、ゴールは "goal"）
- * E: spotName     … スポット名
- * F: sessionId    … 端末ごとに割り振られる匿名ID（同じ人の行動を時系列で追うためのもの。個人情報は含まない）
+ * ----- 既にセットアップ済みで、このファイルを更新した場合 -----
+ * 「デプロイ」→「デプロイを管理」→ 鉛筆アイコン(編集) →
+ * バージョン「新バージョン」を選んで「デプロイ」を押せば、
+ * URLはそのままでコードだけ更新できる（index.html側の変更は不要）。
  *
- * 滞在時間は、同じ sessionId の行を時系列に並べ、隣り合うtimestampの差を
- * 取ることで算出できる（例: ①到着11:30 → ②到着11:40 なら①での滞在は約10分）。
+ * ----- 記録されるシート -----
+ * 1枚目のシート（元からあるシート）: スポット到着ログ
+ *   A: receivedAt … サーバーが受信した時刻
+ *   B: timestamp  … 端末側で記録した時刻（ISO 8601）
+ *   C: event      … "start"（冒険開始） / "arrive"（スポット到着） / "goal"（ゴール到着）
+ *   D: spotId     … スポット番号（1〜6、ゴールは "goal"）
+ *   E: spotName   … スポット名
+ *   F: sessionId  … 端末ごとの匿名ID（個人情報は含まない）
+ *
+ *   滞在時間は、同じ sessionId の行を時系列に並べ、隣り合うtimestampの差を
+ *   取ることで算出できる（例: ①到着11:30 → ②到着11:40 なら①での滞在は約10分）。
+ *
+ * "survey_pre" シート（自動作成）: アプリ使用前アンケート（①〜⑦）
+ * "survey_post" シート（自動作成）: アプリ使用後アンケート（⑧〜⑱）
+ *   どちらも1行目に見出し、2行目以降に回答が溜まっていく。
  */
 function doPost(e) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-
   let data = {};
   try {
     data = JSON.parse(e.postData.contents);
@@ -40,14 +46,13 @@ function doPost(e) {
     data = {};
   }
 
-  sheet.appendRow([
-    new Date(),
-    data.timestamp || "",
-    data.event || "",
-    data.spotId != null ? data.spotId : "",
-    data.spotName || "",
-    data.sessionId || "",
-  ]);
+  if (data.type === "survey_pre") {
+    logSurvey("survey_pre", SURVEY_PRE_FIELDS, data);
+  } else if (data.type === "survey_post") {
+    logSurvey("survey_post", SURVEY_POST_FIELDS, data);
+  } else {
+    logVisitEvent(data);
+  }
 
   return ContentService
     .createTextOutput(JSON.stringify({ ok: true }))
@@ -56,4 +61,56 @@ function doPost(e) {
 
 function doGet(e) {
   return ContentService.createTextOutput("OK");
+}
+
+/* ---------- スポット到着ログ（元からあるシートの1枚目に記録） ---------- */
+function logVisitEvent(data) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+  sheet.appendRow([
+    new Date(),
+    data.timestamp || "",
+    data.event || "",
+    data.spotId != null ? data.spotId : "",
+    data.spotName || "",
+    data.sessionId || "",
+  ]);
+}
+
+/* ---------- アンケート（専用シートに記録、なければ自動作成） ---------- */
+const SURVEY_PRE_FIELDS = [
+  "age", "residence",
+  "stationPurpose", "stationPurposeOther",
+  "plannedDuration",
+  "plannedSpots", "plannedSpotsOther",
+  "walkIntent", "detourIntent",
+];
+
+const SURVEY_POST_FIELDS = [
+  "unplannedVisit", "behaviorChange", "walkIntentAfter", "stayLonger",
+  "experienceChange", "satisfaction", "revisitIntent", "futureUseIntent",
+  "actualSpots", "actualSpotsOther",
+  "actualDuration",
+  "freeComment",
+];
+
+function logSurvey(sheetName, fields, data) {
+  const header = ["receivedAt", "timestamp", "sessionId"].concat(fields);
+  const sheet = getOrCreateSheet(sheetName, header);
+  const answers = data.answers || {};
+  const row = [new Date(), data.timestamp || "", data.sessionId || ""];
+  fields.forEach(function (f) {
+    const v = answers[f];
+    row.push(Array.isArray(v) ? v.join(", ") : (v || ""));
+  });
+  sheet.appendRow(row);
+}
+
+function getOrCreateSheet(name, header) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(name);
+  if (!sheet) {
+    sheet = ss.insertSheet(name);
+    sheet.appendRow(header);
+  }
+  return sheet;
 }

@@ -222,6 +222,21 @@ body{
   margin-top:16px;padding:12px 14px;border:1px dashed var(--line);border-radius:12px;font-size:11.5px;color:var(--ink-soft);
 }
 .debug-panel input{width:100%;font-size:12px;padding:6px;margin:4px 0;border-radius:8px;border:1px solid var(--line);}
+
+/* ---------- survey ---------- */
+.survey-q{margin-bottom:20px;}
+.survey-q-label{font-family:"Zen Maru Gothic";font-weight:700;font-size:13.5px;margin-bottom:8px;color:var(--ink);line-height:1.5;}
+.survey-options{display:flex;flex-direction:column;gap:6px;}
+.survey-option{display:flex;align-items:center;gap:8px;font-size:13px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--paper);}
+.survey-option input{flex-shrink:0;width:16px;height:16px;}
+.survey-other-input{width:100%;margin-top:8px;padding:9px 10px;border-radius:10px;border:1px solid var(--line);font-size:13px;font-family:inherit;box-sizing:border-box;}
+.survey-scale{display:flex;justify-content:space-between;gap:6px;}
+.survey-scale-opt{position:relative;flex:1;}
+.survey-scale-opt input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer;}
+.survey-scale-opt span{display:flex;align-items:center;justify-content:center;padding:11px 0;border:1.5px solid var(--line);border-radius:10px;background:var(--paper);font-size:14px;font-weight:700;color:var(--ink-soft);}
+.survey-scale-opt input:checked + span{background:var(--clay-500);border-color:var(--clay-500);color:#fff;}
+.survey-scale-caption{display:flex;justify-content:space-between;font-size:10px;color:var(--ink-soft);margin-top:5px;}
+.survey-textarea{width:100%;min-height:72px;padding:10px;border-radius:10px;border:1px solid var(--line);font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;}
 </style>
 </head>
 <body>
@@ -313,6 +328,29 @@ body{
     <h2 id="story-title">スポット名</h2>
     <div id="story-body" style="font-size:13.5px;line-height:1.9;"></div>
     <button class="btn btn-primary" id="story-ar-btn">ARでフクイちゃんに会う</button>
+  </div>
+</div>
+
+<!-- ============ PRE-SURVEY MODAL ============ -->
+<div class="modal-back" id="survey-pre-modal">
+  <div class="modal-sheet">
+    <button class="close-x" id="survey-pre-close">✕</button>
+    <h2>はじめる前にアンケートにご協力ください</h2>
+    <p style="font-size:12px;color:var(--ink-soft);margin:0 0 16px;">回答は匿名で、福井駅周辺の回遊促進の取り組みの参考としてのみ使用します。</p>
+    <form id="survey-pre-form"></form>
+    <button class="btn btn-primary" id="survey-pre-submit" style="margin-top:6px;">回答してはじめる</button>
+    <button class="btn btn-ghost" id="survey-pre-skip" style="margin-top:8px;">今回は回答せずにはじめる</button>
+  </div>
+</div>
+
+<!-- ============ POST-SURVEY MODAL ============ -->
+<div class="modal-back" id="survey-post-modal">
+  <div class="modal-sheet">
+    <button class="close-x" id="survey-post-close">✕</button>
+    <h2>最後にアンケートにご協力ください</h2>
+    <p style="font-size:12px;color:var(--ink-soft);margin:0 0 16px;">今回の体験について教えてください（匿名）。</p>
+    <form id="survey-post-form"></form>
+    <button class="btn btn-primary" id="survey-post-submit" style="margin-top:6px;">回答を送信する</button>
   </div>
 </div>
 
@@ -434,6 +472,186 @@ function logVisit(event, spot){
   }
 }
 
+function sendToLog(payload){
+  if(!LOG_ENDPOINT) return;
+  try{
+    const blob = new Blob([JSON.stringify(payload)], {type:"text/plain"});
+    if(navigator.sendBeacon){
+      navigator.sendBeacon(LOG_ENDPOINT, blob);
+    }else{
+      fetch(LOG_ENDPOINT, {method:"POST", mode:"no-cors", body: blob}).catch(()=>{});
+    }
+  }catch(e){
+    // 計測の失敗でユーザー体験を損なわないよう、ここで握りつぶす
+  }
+}
+
+/* =========================================================
+   アンケート（回遊行動アンケート：アプリ使用前 / 使用後）
+   回答は匿名セッションIDとともにLOG_ENDPOINTへ
+   type:"survey_pre" / "survey_post" として送信される。
+   スプレッドシート側では別シート(survey_pre / survey_post)に
+   自動で追記される（analytics/apps-script.gs 参照）。
+========================================================= */
+const COMMON_SPOT_OPTIONS = ["恐竜広場","柴田神社","福井城址","養浩館庭園","新栄商店街","ハピリン"];
+const DURATION_OPTIONS = ["30分未満","30分〜1時間","1〜2時間","2〜3時間","3時間以上"];
+
+const SURVEY_PRE = [
+  {id:"age", label:"① 年齢", type:"radio", options:["19歳以下","20〜29歳","30〜39歳","40〜49歳","50〜59歳","60歳以上"]},
+  {id:"residence", label:"② 居住地", type:"radio", options:["福井県内","北陸(石川・富山)","その他国内","海外"]},
+  {id:"stationPurpose", label:"③ 福井駅の利用目的(複数選択可)", type:"checkbox", options:["観光","飲食","買い物","乗り換え","仕事","その他"]},
+  {id:"plannedDuration", label:"④ 福井駅周辺での滞在予定時間", type:"radio", options:DURATION_OPTIONS},
+  {id:"plannedSpots", label:"⑤ 福井駅周辺で訪れる予定の場所(複数選択可)", type:"checkbox", options:COMMON_SPOT_OPTIONS, other:true},
+  {id:"walkIntent", label:"⑥ 福井駅周辺を歩いて回る予定がある", type:"scale"},
+  {id:"detourIntent", label:"⑦ 予定している場所以外にも立ち寄ってみたい", type:"scale"},
+];
+
+const SURVEY_POST = [
+  {id:"unplannedVisit", label:"⑧ アプリを使用して、予定していなかった場所に立ち寄った", type:"scale"},
+  {id:"behaviorChange", label:"⑨ アプリを使用したことで、普段なら行かなかった場所に行った", type:"scale"},
+  {id:"walkIntentAfter", label:"⑩ アプリを使用したことで、福井駅周辺をより歩いてみたいと思った", type:"scale"},
+  {id:"stayLonger", label:"⑪ アプリを使用したことで、福井駅周辺での滞在時間が伸びたと感じる", type:"scale"},
+  {id:"experienceChange", label:"⑫ アプリを使用したことで、福井駅周辺での過ごし方が変わった", type:"scale"},
+  {id:"satisfaction", label:"⑬ 今回のアプリを使用した体験に満足している", type:"scale"},
+  {id:"revisitIntent", label:"⑭ アプリを使用したことで、福井駅周辺をまた訪れたいと思った", type:"scale"},
+  {id:"futureUseIntent", label:"⑮ 今後、同じようなアプリがあれば利用したい", type:"scale"},
+  {id:"actualSpots", label:"⑯ 今回実際に立ち寄った場所(複数選択可)", type:"checkbox", options:COMMON_SPOT_OPTIONS, other:true},
+  {id:"actualDuration", label:"⑰ 実際の滞在時間", type:"radio", options:DURATION_OPTIONS},
+  {id:"freeComment", label:"⑱ アプリを使ってよかった点・改善してほしい点", type:"textarea"},
+];
+
+function renderSurveyQuestion(q){
+  const wrap = document.createElement("div");
+  wrap.className = "survey-q";
+  const title = document.createElement("div");
+  title.className = "survey-q-label";
+  title.textContent = q.label;
+  wrap.appendChild(title);
+
+  if(q.type === "radio" || q.type === "checkbox"){
+    const opts = document.createElement("div");
+    opts.className = "survey-options";
+    q.options.forEach(opt=>{
+      const lbl = document.createElement("label");
+      lbl.className = "survey-option";
+      const input = document.createElement("input");
+      input.type = q.type;
+      input.name = q.id;
+      input.value = opt;
+      lbl.appendChild(input);
+      lbl.appendChild(document.createTextNode(opt));
+      opts.appendChild(lbl);
+    });
+    wrap.appendChild(opts);
+    if(q.other){
+      const otherInput = document.createElement("input");
+      otherInput.type = "text";
+      otherInput.className = "survey-other-input";
+      otherInput.name = q.id + "Other";
+      otherInput.placeholder = "その他(自由記述)";
+      wrap.appendChild(otherInput);
+    }
+  }else if(q.type === "scale"){
+    const scale = document.createElement("div");
+    scale.className = "survey-scale";
+    for(let i=1;i<=5;i++){
+      const lbl = document.createElement("label");
+      lbl.className = "survey-scale-opt";
+      const input = document.createElement("input");
+      input.type = "radio";
+      input.name = q.id;
+      input.value = String(i);
+      const span = document.createElement("span");
+      span.textContent = i;
+      lbl.appendChild(input);
+      lbl.appendChild(span);
+      scale.appendChild(lbl);
+    }
+    const capt = document.createElement("div");
+    capt.className = "survey-scale-caption";
+    capt.innerHTML = "<span>そう思わない</span><span>とても思う</span>";
+    wrap.appendChild(scale);
+    wrap.appendChild(capt);
+  }else if(q.type === "textarea"){
+    const ta = document.createElement("textarea");
+    ta.className = "survey-textarea";
+    ta.name = q.id;
+    ta.rows = 3;
+    wrap.appendChild(ta);
+  }
+  return wrap;
+}
+
+function buildSurveyForm(formEl, questions){
+  formEl.innerHTML = "";
+  questions.forEach(q => formEl.appendChild(renderSurveyQuestion(q)));
+}
+
+function collectSurveyAnswers(formEl, questions){
+  const answers = {};
+  questions.forEach(q=>{
+    if(q.type === "radio" || q.type === "scale"){
+      const checked = formEl.querySelector(`input[name="${q.id}"]:checked`);
+      answers[q.id] = checked ? checked.value : "";
+    }else if(q.type === "checkbox"){
+      const checked = formEl.querySelectorAll(`input[name="${q.id}"]:checked`);
+      answers[q.id] = Array.from(checked).map(c=>c.value);
+      if(q.other){
+        const otherEl = formEl.querySelector(`[name="${q.id}Other"]`);
+        const otherVal = otherEl ? otherEl.value.trim() : "";
+        if(otherVal) answers[q.id + "Other"] = otherVal;
+      }
+    }else if(q.type === "textarea"){
+      const el = formEl.querySelector(`[name="${q.id}"]`);
+      answers[q.id] = el ? el.value.trim() : "";
+    }
+  });
+  return answers;
+}
+
+const preSurveyForm = document.getElementById("survey-pre-form");
+buildSurveyForm(preSurveyForm, SURVEY_PRE);
+const postSurveyForm = document.getElementById("survey-post-form");
+buildSurveyForm(postSurveyForm, SURVEY_POST);
+
+function openPreSurvey(){ document.getElementById("survey-pre-modal").classList.add("open"); }
+function closePreSurvey(){ document.getElementById("survey-pre-modal").classList.remove("open"); }
+
+function finishPreSurvey(skipped){
+  progress.preSurveyDone = true;
+  saveProgress(progress);
+  if(!skipped){
+    sendToLog({
+      type: "survey_pre",
+      sessionId: getSessionId(),
+      timestamp: new Date().toISOString(),
+      answers: collectSurveyAnswers(preSurveyForm, SURVEY_PRE),
+    });
+  }
+  closePreSurvey();
+  beginAdventure();
+}
+document.getElementById("survey-pre-submit").addEventListener("click", ()=> finishPreSurvey(false));
+document.getElementById("survey-pre-skip").addEventListener("click", ()=> finishPreSurvey(true));
+document.getElementById("survey-pre-close").addEventListener("click", ()=> finishPreSurvey(true));
+
+function openPostSurvey(){ document.getElementById("survey-post-modal").classList.add("open"); }
+function closePostSurvey(){ document.getElementById("survey-post-modal").classList.remove("open"); }
+document.getElementById("survey-post-close").addEventListener("click", closePostSurvey);
+document.getElementById("survey-post-submit").addEventListener("click", ()=>{
+  progress.postSurveyDone = true;
+  saveProgress(progress);
+  sendToLog({
+    type: "survey_post",
+    sessionId: getSessionId(),
+    timestamp: new Date().toISOString(),
+    answers: collectSurveyAnswers(postSurveyForm, SURVEY_POST),
+  });
+  closePostSurvey();
+  renderSpotList();
+  showToast("ご回答ありがとうございました！");
+});
+
 /* =========================================================
    状態管理（localStorage永続化）
 ========================================================= */
@@ -522,12 +740,19 @@ document.querySelectorAll(".tab").forEach(t=>{
   t.addEventListener("click", ()=> showScreen(t.dataset.screen));
 });
 
-document.getElementById("btn-start").addEventListener("click", ()=>{
+function beginAdventure(){
   progress.started = true; saveProgress(progress);
   logVisit("start", SPOTS[0]);
   startGPS();
   showScreen("screen-map");
   showToast("位置情報の使用を開始しました。スポットに近づくと自動で反応します");
+}
+document.getElementById("btn-start").addEventListener("click", ()=>{
+  if(!progress.preSurveyDone){
+    openPreSurvey();
+  }else{
+    beginAdventure();
+  }
 });
 document.getElementById("btn-preview").addEventListener("click", ()=>{
   // プレビュー用: 位置情報を使わず画面だけ確認したい場合（GPSは起動しない）
@@ -617,7 +842,8 @@ function renderSpotList(){
   }else{
     goalBody = `
       <div class="spot-hint">${GOAL.note}</div>
-      <button class="spot-btn" id="btn-open-goal">親子の再会を見る</button>`;
+      <button class="spot-btn" id="btn-open-goal">親子の再会を見る</button>
+      ${!progress.postSurveyDone ? `<button class="spot-btn" id="btn-open-post-survey" style="margin-left:8px;background:var(--amber-500);">アンケートに答える</button>` : ""}`;
   }
   goalCard.innerHTML = `<div class="spot-num">🏁</div><div class="spot-body"><p class="spot-name">${GOAL.name}</p>${goalBody}</div>`;
   list.appendChild(goalCard);
@@ -627,6 +853,8 @@ function renderSpotList(){
   });
   const goalBtn = document.getElementById("btn-open-goal");
   if(goalBtn) goalBtn.addEventListener("click", ()=> openStory(GOAL));
+  const postSurveyBtn = document.getElementById("btn-open-post-survey");
+  if(postSurveyBtn) postSurveyBtn.addEventListener("click", openPostSurvey);
 }
 
 /* 到着後にもう一度描画し直せるよう定期チェック */
