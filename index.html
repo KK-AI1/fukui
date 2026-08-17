@@ -339,7 +339,6 @@ body{
     <p style="font-size:12px;color:var(--ink-soft);margin:0 0 16px;">回答は匿名で、福井駅周辺の回遊促進の取り組みの参考としてのみ使用します。</p>
     <form id="survey-pre-form"></form>
     <button class="btn btn-primary" id="survey-pre-submit" style="margin-top:6px;">回答してはじめる</button>
-    <button class="btn btn-ghost" id="survey-pre-skip" style="margin-top:8px;">今回は回答せずにはじめる</button>
   </div>
 </div>
 
@@ -628,23 +627,20 @@ buildSurveyForm(postSurveyForm, SURVEY_POST);
 function openPreSurvey(){ document.getElementById("survey-pre-modal").classList.add("open"); }
 function closePreSurvey(){ document.getElementById("survey-pre-modal").classList.remove("open"); }
 
-function finishPreSurvey(skipped){
+function finishPreSurvey(){
   progress.preSurveyDone = true;
   saveProgress(progress);
-  if(!skipped){
-    sendToLog({
-      type: "survey_pre",
-      sessionId: getSessionId(),
-      timestamp: new Date().toISOString(),
-      answers: collectSurveyAnswers(preSurveyForm, SURVEY_PRE),
-    });
-  }
+  sendToLog({
+    type: "survey_pre",
+    sessionId: getSessionId(),
+    timestamp: new Date().toISOString(),
+    answers: collectSurveyAnswers(preSurveyForm, SURVEY_PRE),
+  });
   closePreSurvey();
   beginAdventure();
 }
-document.getElementById("survey-pre-submit").addEventListener("click", ()=> finishPreSurvey(false));
-document.getElementById("survey-pre-skip").addEventListener("click", ()=> finishPreSurvey(true));
-document.getElementById("survey-pre-close").addEventListener("click", ()=> finishPreSurvey(true));
+document.getElementById("survey-pre-submit").addEventListener("click", finishPreSurvey);
+document.getElementById("survey-pre-close").addEventListener("click", closePreSurvey);
 
 function openPostSurvey(){ document.getElementById("survey-post-modal").classList.add("open"); }
 function closePostSurvey(){ document.getElementById("survey-post-modal").classList.remove("open"); }
