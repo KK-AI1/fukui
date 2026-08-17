@@ -354,6 +354,17 @@ body{
   </div>
 </div>
 
+<!-- ============ PHOTO VIEW MODAL ============ -->
+<div class="modal-back" id="photo-view-modal">
+  <div class="modal-sheet" style="padding:16px;">
+    <button class="close-x" id="photo-view-close">✕</button>
+    <p id="photo-view-title" style="font-family:'Zen Maru Gothic';font-weight:700;font-size:14.5px;margin:0 0 10px;color:var(--amber-900);"></p>
+    <img id="photo-view-img" src="" alt="" style="width:100%;border-radius:14px;display:block;">
+    <button class="btn btn-primary" id="photo-view-save" style="margin-top:14px;">この写真をスマホに保存</button>
+    <p style="font-size:11px;color:var(--ink-soft);margin-top:8px;">保存できない場合は、写真を長押しして「画像を保存」を選んでください。</p>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -983,12 +994,63 @@ function renderAlbum(){
     slot.className = "album-slot";
     if(item){
       slot.innerHTML = `<img src="${item.img}" alt="${item.spot}"><span class="label">${item.spot.replace(/^[①-⑥]\s*/,'').slice(0,6)}</span>`;
+      slot.style.cursor = "pointer";
+      slot.addEventListener("click", ()=> openPhotoView(item));
     }else{
       slot.innerHTML = `<span class="placeholder">🦴</span>`;
     }
     grid.appendChild(slot);
   }
 }
+
+/* =========================================================
+   写真の拡大表示 ＆ スマホへの保存
+   Web Share API（対応端末はネイティブの「画像を保存」共有シートが開く）を
+   優先し、非対応環境ではダウンロードリンクにフォールバックする。
+========================================================= */
+let activePhoto = null;
+function openPhotoView(item){
+  activePhoto = item;
+  document.getElementById("photo-view-title").textContent = item.spot;
+  document.getElementById("photo-view-img").src = item.img;
+  document.getElementById("photo-view-modal").classList.add("open");
+}
+function closePhotoView(){
+  document.getElementById("photo-view-modal").classList.remove("open");
+}
+document.getElementById("photo-view-close").addEventListener("click", closePhotoView);
+
+async function savePhotoToDevice(dataUrl, filename){
+  try{
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const file = new File([blob], filename, {type:"image/png"});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:"フクイちゃんとまいごの大冒険"});
+      return true;
+    }
+  }catch(e){
+    // ユーザーが共有をキャンセルした場合などはここに来るが、
+    // ダウンロードのフォールバックを試すので無視してよい
+  }
+  try{
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    return true;
+  }catch(e){
+    return false;
+  }
+}
+document.getElementById("photo-view-save").addEventListener("click", async ()=>{
+  if(!activePhoto) return;
+  const filename = "fukui-chan_" + activePhoto.spot.replace(/[^\w一-龠ぁ-んァ-ヶー]/g, "") + ".png";
+  const ok = await savePhotoToDevice(activePhoto.img, filename);
+  showToast(ok ? "保存を開始しました" : "保存に失敗しました。長押しで保存してください");
+});
 
 /* =========================================================
    トースト通知
