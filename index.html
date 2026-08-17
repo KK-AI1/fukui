@@ -650,6 +650,7 @@ document.getElementById("survey-post-submit").addEventListener("click", ()=>{
   closePostSurvey();
   renderSpotList();
   showToast("ご回答ありがとうございました！");
+  openStory(GOAL);
 });
 
 /* =========================================================
@@ -840,10 +841,13 @@ function renderSpotList(){
       <div class="spot-meta"><span class="spot-dist">${goalDist!==null ? "恐竜広場まで約"+Math.round(goalDist)+"m" : "位置情報待ち"}</span></div>
       <div class="spot-hint">${GOAL.note}</div>`;
   }else{
-    goalBody = `
+    goalBody = progress.postSurveyDone
+      ? `
       <div class="spot-hint">${GOAL.note}</div>
-      <button class="spot-btn" id="btn-open-goal">親子の再会を見る</button>
-      ${!progress.postSurveyDone ? `<button class="spot-btn" id="btn-open-post-survey" style="margin-left:8px;background:var(--amber-500);">アンケートに答える</button>` : ""}`;
+      <button class="spot-btn" id="btn-open-goal">親子の再会を見る</button>`
+      : `
+      <div class="spot-hint">${GOAL.note}</div>
+      <button class="spot-btn" id="btn-open-goal">アンケートに答えて再会を見る</button>`;
   }
   goalCard.innerHTML = `<div class="spot-num">🏁</div><div class="spot-body"><p class="spot-name">${GOAL.name}</p>${goalBody}</div>`;
   list.appendChild(goalCard);
@@ -852,9 +856,15 @@ function renderSpotList(){
     btn.addEventListener("click", ()=> openStory(SPOTS.find(s=>s.id===parseInt(btn.dataset.open))));
   });
   const goalBtn = document.getElementById("btn-open-goal");
-  if(goalBtn) goalBtn.addEventListener("click", ()=> openStory(GOAL));
-  const postSurveyBtn = document.getElementById("btn-open-post-survey");
-  if(postSurveyBtn) postSurveyBtn.addEventListener("click", openPostSurvey);
+  if(goalBtn){
+    goalBtn.addEventListener("click", ()=>{
+      if(progress.postSurveyDone){
+        openStory(GOAL);
+      }else{
+        openPostSurvey();
+      }
+    });
+  }
 }
 
 /* 到着後にもう一度描画し直せるよう定期チェック */
