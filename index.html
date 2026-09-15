@@ -884,7 +884,7 @@ function openStory(spot){
   activeSpot = spot;
   document.getElementById("story-title").textContent = spot.name;
   document.getElementById("story-body").innerHTML =
-    `<p>${spot.arrive}</p>${spot.hint ? `<p style="color:var(--clay-700);font-weight:500;">${spot.hint}</p>` : ""}`;
+    `<p>${spot.arrive}</p>${spot.hint ? `<p style="color:var(--clay-700);font-weight:500;"><b>次の行先：</b>${spot.hint}</p>` : ""}`;
   document.getElementById("story-ar-btn").textContent = spot.id === "goal" ? "感動の再会をARで見る" : "ARでフクイちゃんに会う";
   document.getElementById("story-modal").classList.add("open");
 }
@@ -905,7 +905,7 @@ document.getElementById("story-ar-btn").addEventListener("click", ()=>{
 let arStream = null;
 
 const AR_CAPTION_DRAG = "実写カメラの上に3Dモデルをリアルタイム合成表示しています（three.js使用）。指で画面をドラッグすると、モデルを回転させて色々な角度から見られます。";
-const AR_CAPTION_MOTION = "ポケモンGOのように、恐竜はその場にとどまります。スマホを動かして、あたりを見回して探してみてね。";
+const AR_CAPTION_MOTION = "恐竜はその場にとどまります。スマホを動かして、あたりを見回して探してみてね。";
 
 function openAR(spot){
   document.getElementById("ar-title").textContent = spot.name;
@@ -1104,7 +1104,6 @@ const LOOK_Y = 0.58;         // ドラッグ操作モード時に見る高さ
    キャラクターごとに固定スケールを指定する方式にしている。 */
 const MODEL_SCALES = {
   "kodomo.glb": 0.55,
-  "chichi.glb": 1.05,
   "rekishi.glb": 1.05,
   "ptera.glb": 1.05,
   "ticket.glb": 1.05,
