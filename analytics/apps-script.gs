@@ -37,6 +37,13 @@
  * "survey_pre" シート（自動作成）: アプリ使用前アンケート（①〜⑦）
  * "survey_post" シート（自動作成）: アプリ使用後アンケート（⑧〜⑱）
  *   どちらも1行目に見出し、2行目以降に回答が溜まっていく。
+ *
+ * "ar_telemetry" シート（自動作成）: AR機能の研究用ログ
+ *   AR方式の判定結果、モデル読み込み失敗、撮影/保存の成否などを記録する。
+ *   写真そのもの（画像データ）は一切含まれない。
+ *   A: receivedAt / B: timestamp / C: sessionId / D: appVersion / E: device /
+ *   F: event / G: arMode / H: modelPath / I: spotId / J: success /
+ *   K: hasCameraBg / L: detail / M: ua
  */
 function doPost(e) {
   let data = {};
@@ -50,6 +57,8 @@ function doPost(e) {
     logSurvey("survey_pre", SURVEY_PRE_FIELDS, data);
   } else if (data.type === "survey_post") {
     logSurvey("survey_post", SURVEY_POST_FIELDS, data);
+  } else if (data.type === "ar_telemetry") {
+    logArTelemetry(data);
   } else {
     logVisitEvent(data);
   }
@@ -103,6 +112,30 @@ function logSurvey(sheetName, fields, data) {
     row.push(Array.isArray(v) ? v.join(", ") : (v || ""));
   });
   sheet.appendRow(row);
+}
+
+/* ---------- ARテレメトリ（専用シートに記録、なければ自動作成） ---------- */
+const AR_TELEMETRY_HEADER = [
+  "receivedAt", "timestamp", "sessionId", "appVersion", "device",
+  "event", "arMode", "modelPath", "spotId", "success", "hasCameraBg", "detail", "ua",
+];
+function logArTelemetry(data) {
+  const sheet = getOrCreateSheet("ar_telemetry", AR_TELEMETRY_HEADER);
+  sheet.appendRow([
+    new Date(),
+    data.timestamp || "",
+    data.sessionId || "",
+    data.appVersion || "",
+    data.device || "",
+    data.event || "",
+    data.arMode || "",
+    data.modelPath || "",
+    data.spotId != null ? data.spotId : "",
+    data.success != null ? data.success : "",
+    data.hasCameraBg != null ? data.hasCameraBg : "",
+    data.detail || "",
+    data.ua || "",
+  ]);
 }
 
 function getOrCreateSheet(name, header) {
