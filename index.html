@@ -228,11 +228,6 @@ body{
 }
 .toast.show{opacity:1;}
 
-.debug-panel{
-  margin-top:16px;padding:12px 14px;border:1px dashed var(--line);border-radius:12px;font-size:11.5px;color:var(--ink-soft);
-}
-.debug-panel input{width:100%;font-size:12px;padding:6px;margin:4px 0;border-radius:8px;border:1px solid var(--line);}
-
 /* ---------- survey ---------- */
 .survey-q{margin-bottom:20px;}
 .survey-q-label{font-family:"Zen Maru Gothic";font-weight:700;font-size:13.5px;margin-bottom:8px;color:var(--ink);line-height:1.5;}
@@ -279,13 +274,6 @@ body{
       </div>
     </div>
 
-    <div class="debug-panel" id="debug-panel">
-      <b>現地テスト用デバッグパネル（Phase 5向け）</b><br>
-      実機で試走できないときは、緯度経度を手入力して各スポットの判定距離を確認できます。
-      <input type="text" id="debug-lat" placeholder="緯度 例: 36.06126">
-      <input type="text" id="debug-lng" placeholder="経度 例: 136.22225">
-      <button class="btn btn-secondary" id="btn-debug-apply" style="margin-top:4px;">この座標で判定する</button>
-    </div>
   </section>
 
   <!-- ============ MAP SCREEN ============ -->
@@ -843,17 +831,6 @@ function setGpsStatus(ok, text){
   document.getElementById("dot-gps").className = "dot " + (ok ? "ok" : "warn");
   document.getElementById("txt-gps").textContent = text;
 }
-
-/* デバッグ用: 手入力座標を currentPos に反映 */
-document.getElementById("btn-debug-apply").addEventListener("click", ()=>{
-  const lat = parseFloat(document.getElementById("debug-lat").value);
-  const lng = parseFloat(document.getElementById("debug-lng").value);
-  if(isNaN(lat) || isNaN(lng)){ showToast("緯度・経度を正しく入力してください"); return; }
-  currentPos = {lat, lng, acc:5};
-  setGpsStatus(true, "デバッグ座標を使用中（精度 5m 相当）");
-  renderSpotList();
-  showToast("デバッグ座標を適用しました");
-});
 
 /* =========================================================
    画面遷移
