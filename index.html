@@ -670,6 +670,7 @@ function finishPreSurvey(){
 document.getElementById("survey-pre-submit").addEventListener("click", finishPreSurvey);
 document.getElementById("survey-pre-close").addEventListener("click", closePreSurvey);
 
+function anyModalOpen(){ return !!document.querySelector(".modal-back.open"); }
 function openPostSurvey(){ document.getElementById("survey-post-modal").classList.add("open"); }
 function closePostSurvey(){ document.getElementById("survey-post-modal").classList.remove("open"); }
 document.getElementById("survey-post-close").addEventListener("click", closePostSurvey);
@@ -770,6 +771,7 @@ let album = []; // {id, spot, blob, url} の配列。起動時に initAlbum() �
 let currentPos = null;
 let watchId = null;
 let activeSpot = null;
+let postSurveyAutoOpened = false; // 事後アンケートをこのセッション中に自動表示済みか
 
 function albumObjectUrl(item){
   if(!item.url) item.url = URL.createObjectURL(item.blob);
@@ -947,13 +949,20 @@ function renderSpotList(){
       <div class="spot-meta"><span class="spot-dist">${goalDist!==null ? "恐竜広場まで約"+Math.round(goalDist)+"m" : "位置情報待ち"}</span></div>
       <div class="spot-hint">${GOAL.note}</div>`;
   }else{
+    // アンケートに入る前の離脱を減らすため、「答えてから見る」と一度誘導した上で
+    // タップを要求するのではなく、恐竜広場に戻ってきた瞬間に自動で開く。
+    // （✕で閉じた場合の再開だけ、下のボタンから手動で開けるようにする。）
+    if(!progress.postSurveyDone && !postSurveyAutoOpened && !anyModalOpen()){
+      postSurveyAutoOpened = true;
+      openPostSurvey();
+    }
     goalBody = progress.postSurveyDone
       ? `
       <div class="spot-hint">${GOAL.note}</div>
       <button class="spot-btn" id="btn-open-goal">親子の再会を見る</button>`
       : `
       <div class="spot-hint">${GOAL.note}</div>
-      <button class="spot-btn" id="btn-open-goal">アンケートに答えて再会を見る</button>`;
+      <button class="spot-btn" id="btn-open-goal">アンケートに戻る</button>`;
   }
   goalCard.innerHTML = `<div class="spot-num">🏁</div><div class="spot-body"><p class="spot-name">${GOAL.name}</p>${goalBody}</div>`;
   list.appendChild(goalCard);
