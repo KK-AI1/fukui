@@ -36,7 +36,11 @@
  *
  * "survey_pre" シート（自動作成）: アプリ使用前アンケート（①〜⑦）
  * "survey_post" シート（自動作成）: アプリ使用後アンケート（⑧〜⑱）
- *   どちらも1行目に見出し、2行目以降に回答が溜まっていく。
+ *   どちらも1行目に日本語の見出し（質問文そのまま）、2行目以降に回答が溜まっていく。
+ *   見出し行は毎回の受信時に最新の内容へ自動で上書きされるので、この
+ *   ファイルを更新して「デプロイを管理→新バージョン」で再デプロイすれば、
+ *   既存のシートの見出しも次の回答受信時に自動で直る（過去の回答データは
+ *   そのまま残る）。
  *
  * "ar_telemetry" シート（自動作成）: AR機能の研究用ログ
  *   AR方式の判定結果、モデル読み込み失敗、撮影/保存の成否などを記録する。
@@ -85,30 +89,44 @@ function logVisitEvent(data) {
   ]);
 }
 
-/* ---------- アンケート（専用シートに記録、なければ自動作成） ---------- */
+/* ---------- アンケート（専用シートに記録、なければ自動作成） ----------
+ * key: index.html側の質問id（answersオブジェクトのキー）。変更しないこと。
+ * label: スプレッドシートの見出しに表示する日本語の質問文。
+ */
 const SURVEY_PRE_FIELDS = [
-  "age", "residence",
-  "stationPurpose", "stationPurposeOther",
-  "plannedDuration",
-  "plannedSpots", "plannedSpotsOther",
-  "walkIntent", "detourIntent",
+  { key: "age", label: "①年齢" },
+  { key: "residence", label: "②居住地" },
+  { key: "stationPurpose", label: "③福井駅の利用目的" },
+  { key: "stationPurposeOther", label: "③福井駅の利用目的（その他自由記述）" },
+  { key: "plannedDuration", label: "④福井駅周辺での滞在予定時間" },
+  { key: "plannedSpots", label: "⑤福井駅周辺で訪れる予定の場所" },
+  { key: "plannedSpotsOther", label: "⑤福井駅周辺で訪れる予定の場所（その他自由記述）" },
+  { key: "walkIntent", label: "⑥福井駅周辺を歩いて回る予定がある" },
+  { key: "detourIntent", label: "⑦予定している場所以外にも立ち寄ってみたい" },
 ];
 
 const SURVEY_POST_FIELDS = [
-  "unplannedVisit", "behaviorChange", "walkIntentAfter", "stayLonger",
-  "experienceChange", "satisfaction", "revisitIntent", "futureUseIntent",
-  "actualSpots", "actualSpotsOther",
-  "actualDuration",
-  "freeComment",
+  { key: "unplannedVisit", label: "⑧予定していなかった場所に立ち寄った" },
+  { key: "behaviorChange", label: "⑨普段なら行かなかった場所に行った" },
+  { key: "walkIntentAfter", label: "⑩福井駅周辺をより歩いてみたいと思った" },
+  { key: "stayLonger", label: "⑪滞在時間が伸びたと感じる" },
+  { key: "experienceChange", label: "⑫福井駅周辺での過ごし方が変わった" },
+  { key: "satisfaction", label: "⑬体験に満足している" },
+  { key: "revisitIntent", label: "⑭福井駅周辺をまた訪れたいと思った" },
+  { key: "futureUseIntent", label: "⑮今後、同じようなアプリがあれば利用したい" },
+  { key: "actualSpots", label: "⑯実際に立ち寄った場所" },
+  { key: "actualSpotsOther", label: "⑯実際に立ち寄った場所（その他自由記述）" },
+  { key: "actualDuration", label: "⑰実際の滞在時間" },
+  { key: "freeComment", label: "⑱アプリを使ってよかった点・改善してほしい点" },
 ];
 
 function logSurvey(sheetName, fields, data) {
-  const header = ["receivedAt", "timestamp", "sessionId"].concat(fields);
+  const header = ["受信日時", "送信日時（端末）", "匿名セッションID"].concat(fields.map(function (f) { return f.label; }));
   const sheet = getOrCreateSheet(sheetName, header);
   const answers = data.answers || {};
   const row = [new Date(), data.timestamp || "", data.sessionId || ""];
   fields.forEach(function (f) {
-    const v = answers[f];
+    const v = answers[f.key];
     row.push(Array.isArray(v) ? v.join(", ") : (v || ""));
   });
   sheet.appendRow(row);
@@ -144,6 +162,12 @@ function getOrCreateSheet(name, header) {
   if (!sheet) {
     sheet = ss.insertSheet(name);
     sheet.appendRow(header);
+  } else {
+    // 既にシートがある場合も、見出し行だけは常に最新の内容に合わせて上書きする。
+    // （列の並び順・数は変えていないので、2行目以降の既存データには影響しない。
+    //   例: 見出しを英語→日本語に変えた場合も、再デプロイ後の最初の書き込みで
+    //   古いシートの見出しが自動的に日本語に直る。）
+    sheet.getRange(1, 1, 1, header.length).setValues([header]);
   }
   return sheet;
 }
