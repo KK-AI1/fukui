@@ -443,6 +443,24 @@ const GOAL = {
 };
 
 /* =========================================================
+   番外スポット（ボーナス）
+   駅前の6スポット踏破・ゴール条件には含まれない「発見型」の追加スポット。
+   訪れるとおまけのARストーリーが見られるが、スタンプラリーの完了判定
+   （SPOTS.every(...)）には影響しない。
+========================================================= */
+const BONUS_SPOTS = [
+  {
+    id:"bonus-daigaku", name:"番外：福井大学 文京キャンパス",
+    lat:36.0764140398416, lng:136.2131234375102, radius:100,
+    note:"駅前の6スポットから少し離れた番外スポット。正門付近が目印。見つけられたらラッキー！",
+    arrive:"キャンパスの片隅、座布団の上にちょこんと座る小さな恐竜を見つけた。迷子のフクイちゃん一家とは別の、この街に暮らす恐竜の子どものようだ。",
+    hint:"街なかに戻って、残りのスポットもめぐってみよう！",
+    ar:"赤いリボンをつけた子恐竜が、座布団の上でひと休み中。",
+    model:"assets/models/daigaku.glb"
+  }
+];
+
+/* =========================================================
    滞在ログ（運営者だけが見られる裏側の計測。画面には一切表示しない）
    スポットに到着するたびに「匿名セッションID・スポット名・時刻」だけを
    外部エンドポイント（Google Apps Script + スプレッドシート想定）へ
@@ -531,7 +549,7 @@ function logTelemetry(fields){
    スプレッドシート側では別シート(survey_pre / survey_post)に
    自動で追記される（analytics/apps-script.gs 参照）。
 ========================================================= */
-const COMMON_SPOT_OPTIONS = ["恐竜広場","柴田神社","福井城址","佐佳枝廼社","新栄商店街","ハピリン"];
+const COMMON_SPOT_OPTIONS = ["恐竜広場","柴田神社","福井城址","佐佳枝廼社","新栄商店街","ハピリン","福井大学（番外）"];
 const DURATION_OPTIONS = ["30分未満","30分〜1時間","1〜2時間","2〜3時間","3時間以上"];
 
 const SURVEY_PRE = [
@@ -967,8 +985,49 @@ function renderSpotList(){
   goalCard.innerHTML = `<div class="spot-num">🏁</div><div class="spot-body"><p class="spot-name">${GOAL.name}</p>${goalBody}</div>`;
   list.appendChild(goalCard);
 
+  // 番外スポット（任意・スタンプラリーの完了判定には含まれない）
+  if(BONUS_SPOTS.length){
+    const bonusLabel = document.createElement("div");
+    bonusLabel.className = "section-label";
+    bonusLabel.style.marginTop = "14px";
+    bonusLabel.textContent = "🎓 番外スポット（任意）";
+    list.appendChild(bonusLabel);
+  }
+  BONUS_SPOTS.forEach(spot=>{
+    const arrived = !!progress.arrived[spot.id];
+    let dist = null;
+    if(currentPos){
+      dist = distanceMeters(currentPos.lat, currentPos.lng, spot.lat, spot.lng);
+    }
+    const here = !arrived && dist !== null && dist <= spot.radius;
+    if(here && !arrived){
+      progress.arrived[spot.id] = true;
+      saveProgress(progress);
+      logVisit("arrive", spot);
+      showToast(spot.name + " を発見しました！");
+    }
+    const card = document.createElement("div");
+    card.className = "spot-card " + (arrived ? "arrived" : (here ? "here" : "locked"));
+    card.innerHTML = `
+      <div class="spot-num">🎓</div>
+      <div class="spot-body">
+        <p class="spot-name">${spot.name}</p>
+        <div class="spot-meta">
+          <span class="chip">判定半径 ${spot.radius}m</span>
+          <span class="spot-dist">${dist !== null ? "現在地から約" + Math.round(dist) + "m" : "位置情報待ち"}</span>
+        </div>
+        <div class="spot-hint">${spot.note}</div>
+        ${arrived ? `<button class="spot-btn" data-open-bonus="${spot.id}">ストーリーを見る</button>` : ""}
+      </div>
+    `;
+    list.appendChild(card);
+  });
+
   list.querySelectorAll("[data-open]").forEach(btn=>{
     btn.addEventListener("click", ()=> openStory(SPOTS.find(s=>s.id===parseInt(btn.dataset.open))));
+  });
+  list.querySelectorAll("[data-open-bonus]").forEach(btn=>{
+    btn.addEventListener("click", ()=> openStory(BONUS_SPOTS.find(s=>s.id===btn.dataset.openBonus)));
   });
   const goalBtn = document.getElementById("btn-open-goal");
   if(goalBtn){
@@ -1342,6 +1401,7 @@ const MODEL_CONFIG = {
   "dango.glb":       { heightMeters: 1.05,   verified: false },
   "family_hug.glb":  { heightMeters: 0.7235, verified: false },
   "garden_dino.glb": { heightMeters: 0.7245, verified: false },
+  "daigaku.glb":     { heightMeters: 0.45,   verified: false },
 };
 const DEFAULT_HEIGHT_METERS = 0.85;
 function configForModel(path){
