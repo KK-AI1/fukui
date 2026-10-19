@@ -1134,7 +1134,7 @@ function openStory(spot){
   activeSpot = spot;
   document.getElementById("story-title").textContent = spot.name;
   document.getElementById("story-body").innerHTML =
-    `<p>${spot.arrive}</p>${spot.hint ? `<p style="color:var(--clay-700);font-weight:500;"><b>次の行先：</b>${spot.hint}</p>` : ""}`;
+    `<p>${spot.arrive}</p>${spot.hint ? `<p style="color:var(--clay-700);font-weight:500;">${spot.hint}</p>` : ""}`;
   document.getElementById("story-ar-btn").textContent = spot.id === "goal" ? "感動の再会をARで見る" : "ARでフクイちゃんに会う";
   document.getElementById("story-modal").classList.add("open");
 }
