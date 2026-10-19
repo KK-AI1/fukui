@@ -306,6 +306,75 @@ body{
 }
 .toast.show{opacity:1;}
 
+/* ---------- 撮影演出（フラッシュ→ダイアリーへ飛ぶ写真） ---------- */
+.ar-flash{
+  position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:40;
+}
+.ar-flash.go{animation:arFlashPop .32s ease-out;}
+@keyframes arFlashPop{0%{opacity:0;}15%{opacity:.95;}100%{opacity:0;}}
+
+.ar-flyphoto{
+  position:absolute;width:120px;height:120px;border-radius:14px;overflow:hidden;
+  left:50%;top:44%;transform:translate(-50%,-50%) scale(1) rotate(0deg);
+  box-shadow:0 10px 26px rgba(0,0,0,.4);border:3px solid #fff;
+  background-size:cover;background-position:center;
+  z-index:45;opacity:0;pointer-events:none;
+}
+.ar-flyphoto.go{animation:arFlyToDiary 1.05s cubic-bezier(.56,.04,.49,1.07) forwards;}
+@keyframes arFlyToDiary{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(1) rotate(0deg);}
+  8%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(0deg);}
+  100%{opacity:0; left:96%; top:102%; transform:translate(-50%,-50%) scale(0.08) rotate(16deg);}
+}
+
+.tab{position:relative;}
+.tab .tab-badge{
+  position:absolute;top:2px;right:calc(50% - 20px);background:var(--clay-500);color:#fff;
+  font-size:9.5px;font-weight:700;border-radius:999px;min-width:15px;height:15px;padding:0 3px;
+  display:flex;align-items:center;justify-content:center;transform:scale(0);
+}
+.tab .tab-badge.show{animation:tabBadgePop .4s cubic-bezier(.34,1.56,.64,1) forwards;}
+@keyframes tabBadgePop{0%{transform:scale(0);}70%{transform:scale(1.3);}100%{transform:scale(1);}}
+.tab.pulse .ic{animation:tabIcPulse .55s ease-out;}
+@keyframes tabIcPulse{
+  0%{text-shadow:0 0 0 rgba(193,85,47,0);}
+  40%{text-shadow:0 0 0 10px rgba(193,85,47,.35);}
+  100%{text-shadow:0 0 0 0 rgba(193,85,47,0);}
+}
+
+/* ---------- 次のあしあと（ヒント）モーダル ---------- */
+#hint-modal{z-index:35;} /* AR撮影モーダル(z-index:30)の上に重ねて表示するため */
+.hint-mapcard{
+  position:relative;width:100%;aspect-ratio:354/405;border-radius:16px;overflow:hidden;
+  border:1px solid var(--line);box-shadow:0 4px 14px rgba(0,0,0,.12);background:#cbd8b8;margin-bottom:14px;
+}
+.hint-mapcard img{position:absolute;left:0;top:0;width:792px;height:432px;transform-origin:0 0;}
+.hint-overlay{position:absolute;inset:0;opacity:0;transition:opacity .4s ease;}
+.hint-overlay.show{opacity:1;}
+.hint-pin{position:absolute;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;}
+.hint-pin .dot{width:13px;height:13px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);}
+.hint-pin.start .dot{background:var(--clay-500);}
+.hint-pin.end .dot{background:var(--moss-700, #3E5C29);}
+.hint-pin .tag{
+  margin-bottom:4px;background:var(--ink);color:#fff;font-size:10px;font-weight:700;
+  padding:3px 7px;border-radius:999px;white-space:nowrap;
+}
+.hint-paw{position:absolute;transform:translate(-50%,-50%) scale(0);font-size:16px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));opacity:0;}
+.hint-paw.go{animation:hintPawPop .32s ease-out forwards;}
+@keyframes hintPawPop{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(0.3) rotate(var(--r,0deg));}
+  60%{opacity:1;transform:translate(-50%,-50%) scale(1.25) rotate(var(--r,0deg));}
+  100%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(var(--r,0deg));}
+}
+.hint-endmark{position:absolute;width:24px;height:24px;border-radius:50%;background:rgba(62,92,41,.4);transform:translate(-50%,-50%) scale(0);opacity:0;}
+.hint-endmark.go{animation:hintEndPulse 1s ease-out forwards;}
+@keyframes hintEndPulse{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(0.3);}
+  30%{opacity:1;transform:translate(-50%,-50%) scale(1.6);}
+  60%{opacity:.6;transform:translate(-50%,-50%) scale(1);}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(2.4);}
+}
+
 /* ---------- survey ---------- */
 .survey-q{margin-bottom:20px;}
 .survey-q-label{font-family:"Zen Maru Gothic";font-weight:700;font-size:13.5px;margin-bottom:8px;color:var(--ink);line-height:1.5;}
@@ -370,7 +439,7 @@ body{
   <div class="tabbar">
     <button class="tab active" data-screen="screen-start"><span class="ic">🏁</span>スタート</button>
     <button class="tab" data-screen="screen-map"><span class="ic">🗺️</span>マップ</button>
-    <button class="tab" data-screen="screen-album"><span class="ic">📖</span>ダイアリー</button>
+    <button class="tab" data-screen="screen-album" id="tab-album"><span class="ic">📖</span>ダイアリー<span class="tab-badge" id="album-badge"></span></button>
   </div>
 </div>
 
@@ -398,6 +467,8 @@ body{
       <div class="ar-overlay-ui">
         <div class="ar-shutter" id="ar-shutter"></div>
       </div>
+      <div class="ar-flash" id="ar-flash"></div>
+      <div class="ar-flyphoto" id="ar-flyphoto"></div>
     </div>
     <p class="ar-caption" id="ar-caption">
       実写カメラの上に3Dモデルをリアルタイム合成表示しています（three.js使用）。指で画面をドラッグすると、モデルを回転させて色々な角度から見られます。
@@ -412,6 +483,20 @@ body{
     <h2 id="story-title">スポット名</h2>
     <div id="story-body" style="font-size:13.5px;line-height:1.9;"></div>
     <button class="btn btn-primary" id="story-ar-btn">ARでフクイちゃんに会う</button>
+  </div>
+</div>
+
+<!-- ============ 次のあしあと（ヒント）モーダル ============ -->
+<div class="modal-back" id="hint-modal">
+  <div class="modal-sheet">
+    <button class="close-x" id="hint-close">✕</button>
+    <h2 id="hint-title">つぎの あしあと</h2>
+    <div class="hint-mapcard" id="hint-mapcard">
+      <img id="hint-map-img" src="assets/town-map.webp">
+      <div class="hint-overlay" id="hint-overlay"></div>
+    </div>
+    <div id="hint-body" style="font-size:13.5px;line-height:1.9;color:var(--clay-700);font-weight:500;"></div>
+    <button class="btn btn-primary" id="hint-close-btn">マップへ戻る</button>
   </div>
 </div>
 
@@ -540,6 +625,81 @@ const BONUS_SPOTS = [
     model:"assets/models/daigaku.glb"
   }
 ];
+
+/* =========================================================
+   次のあしあと: イラストマップ上のスポット位置と足あとパス生成
+   （town-map.webp は 792x432。各スポットの位置は画像を目視で
+    読み取った概算値。実際の道なりではなく演出用の曲線。）
+========================================================= */
+const MAP_W = 792, MAP_H = 432;
+const SPOT_MAP_POS = {
+  1: {x:67, y:51},  // 恐竜広場
+  2: {x:57, y:9},   // 福井城址
+  3: {x:50, y:75},  // 北庄城址・柴田神社
+  4: {x:24, y:22},  // 佐佳枝廼社
+  5: {x:34, y:57},  // 新栄商店街・ガレリア元町
+  6: {x:63, y:66},  // ハピリン
+  goal: {x:67, y:51} // 恐竜広場（ゴール＝スタートと同じ位置）
+};
+function getNextSpot(spot){
+  if(!spot || typeof spot.id !== "number") return null; // ゴール・番外スポットには「次」がない
+  const idx = SPOTS.findIndex(s=>s.id===spot.id);
+  if(idx===-1) return null;
+  return SPOTS[idx+1] || GOAL;
+}
+// 2点間に、歩いた跡っぽい緩いカーブを描いて足あとの通過点列を作る
+function buildFootpath(aPct, bPct, steps=12){
+  const ax=aPct.x/100*MAP_W, ay=aPct.y/100*MAP_H;
+  const bx=bPct.x/100*MAP_W, by=bPct.y/100*MAP_H;
+  const dx=bx-ax, dy=by-ay;
+  const len=Math.hypot(dx,dy)||1;
+  const nx=-dy/len, ny=dx/len;
+  const bendSign=(Math.round(ax+ay)%2===0)?1:-1;
+  const bendAmt=Math.min(len*0.16, 55);
+  const raw=[];
+  for(let i=0;i<=steps;i++){
+    const t=i/steps;
+    const bend=Math.sin(t*Math.PI)*bendAmt*bendSign;
+    raw.push({x:ax+dx*t+nx*bend, y:ay+dy*t+ny*bend});
+  }
+  const out=[];
+  for(let i=0;i<raw.length;i++){
+    const cur=raw[i], nextP=raw[i+1]||raw[i], prevP=raw[i-1]||raw[i];
+    const hx=nextP.x-prevP.x, hy=nextP.y-prevP.y;
+    const ang=Math.atan2(hy,hx)*180/Math.PI+90;
+    const side=(i%2===0)?1:-1;
+    const ox=-hy, oy=hx;
+    const L=Math.hypot(ox,oy)||1;
+    const stagger=4;
+    out.push({
+      x:(cur.x+ox/L*stagger*side)/MAP_W*100,
+      y:(cur.y+oy/L*stagger*side)/MAP_H*100,
+      r:ang
+    });
+  }
+  return out;
+}
+// 2点を程よい余白で囲む矩形を、マップカードの縦横比(354:405)に合わせて計算する
+function computeMapCrop(aPct, bPct){
+  const ax=aPct.x/100*MAP_W, ay=aPct.y/100*MAP_H;
+  const bx=bPct.x/100*MAP_W, by=bPct.y/100*MAP_H;
+  const minX=Math.min(ax,bx), maxX=Math.max(ax,bx);
+  const minY=Math.min(ay,by), maxY=Math.max(ay,by);
+  const padX=Math.max((maxX-minX)*0.35, 55);
+  const padY=Math.max((maxY-minY)*0.35, 55);
+  let x0=minX-padX, x1=maxX+padX, y0=minY-padY, y1=maxY+padY;
+  const ASPECT=354/405;
+  let w=x1-x0, h=y1-y0;
+  if(w/h>ASPECT){ const nh=w/ASPECT; y0-=(nh-h)/2; y1+=(nh-h)/2; h=nh; }
+  else{ const nw=h*ASPECT; x0-=(nw-w)/2; x1+=(nw-w)/2; w=nw; }
+  if(x0<0){ x1-=x0; x0=0; }
+  if(x1>MAP_W){ x0-=(x1-MAP_W); x1=MAP_W; }
+  if(y0<0){ y1-=y0; y0=0; }
+  if(y1>MAP_H){ y0-=(y1-MAP_H); y1=MAP_H; }
+  x0=Math.max(0,x0); y0=Math.max(0,y0);
+  w=Math.min(MAP_W-x0, x1-x0); h=Math.min(MAP_H-y0, y1-y0);
+  return {x:x0, y:y0, w, h};
+}
 
 /* =========================================================
    滞在ログ（運営者だけが見られる裏側の計測。画面には一切表示しない）
@@ -1133,8 +1293,7 @@ setInterval(()=>{ if(currentPos) renderSpotList(); }, 4000);
 function openStory(spot){
   activeSpot = spot;
   document.getElementById("story-title").textContent = spot.name;
-  document.getElementById("story-body").innerHTML =
-    `<p>${spot.arrive}</p>${spot.hint ? `<p style="color:var(--clay-700);font-weight:500;">${spot.hint}</p>` : ""}`;
+  document.getElementById("story-body").innerHTML = `<p>${spot.arrive}</p>`;
   document.getElementById("story-ar-btn").textContent = spot.id === "goal" ? "感動の再会をARで見る" : "ARでフクイちゃんに会う";
   document.getElementById("story-modal").classList.add("open");
 }
@@ -1267,6 +1426,104 @@ function closeAR(){
 }
 document.getElementById("ar-close").addEventListener("click", closeAR);
 
+/* =========================================================
+   撮影演出（フラッシュ→ダイアリーへ飛ぶ）＋ 次のあしあとヒント
+========================================================= */
+function playCaptureEffect(dataUrl){
+  return new Promise(resolve=>{
+    const flash = document.getElementById("ar-flash");
+    const fly = document.getElementById("ar-flyphoto");
+    fly.style.backgroundImage = `url(${dataUrl})`;
+    flash.classList.remove("go"); void flash.offsetWidth; flash.classList.add("go");
+    fly.classList.remove("go"); void fly.offsetWidth; fly.classList.add("go");
+    setTimeout(()=>{
+      fly.classList.remove("go");
+      const tab = document.getElementById("tab-album");
+      const badge = document.getElementById("album-badge");
+      tab.classList.remove("pulse"); void tab.offsetWidth; tab.classList.add("pulse");
+      badge.classList.remove("show"); void badge.offsetWidth; badge.classList.add("show");
+      setTimeout(()=>{ badge.classList.remove("show"); tab.classList.remove("pulse"); }, 1800);
+      resolve();
+    }, 1050);
+  });
+}
+function hintSpotLabel(spot){
+  const base = spot.name.replace(/^[①-⑥]\s*/,'');
+  return spot.id === "goal" ? "恐竜広場（ゴール）" : base;
+}
+async function openHintOverlay(fromSpot, toSpot){
+  document.getElementById("hint-title").textContent = "つぎの あしあと";
+  document.getElementById("hint-body").innerHTML = fromSpot.hint || "";
+  document.getElementById("hint-modal").classList.add("open");
+
+  const card = document.getElementById("hint-mapcard");
+  const img = document.getElementById("hint-map-img");
+  const overlay = document.getElementById("hint-overlay");
+  overlay.innerHTML = "";
+  overlay.classList.remove("show");
+
+  const cardW = card.clientWidth, cardH = card.clientHeight;
+  const scale0 = Math.min(cardW/MAP_W, cardH/MAP_H);
+  const tx0 = (cardW - MAP_W*scale0)/2, ty0 = (cardH - MAP_H*scale0)/2;
+  img.style.transition = "none";
+  img.style.transform = `translate(${tx0}px,${ty0}px) scale(${scale0})`;
+  void img.offsetWidth;
+  img.style.transition = "transform 1.35s cubic-bezier(.65,0,.35,1)";
+
+  const aPct = SPOT_MAP_POS[fromSpot.id];
+  const bPct = SPOT_MAP_POS[toSpot.id];
+  if(!aPct || !bPct) return; // 位置データのないスポットは演出をスキップ
+  const crop = computeMapCrop(aPct, bPct);
+  const scale1 = cardW/crop.w;
+  const tx1 = -crop.x*scale1, ty1 = -crop.y*scale1;
+
+  const startPin = document.createElement("div");
+  startPin.className = "hint-pin start";
+  startPin.style.left = aPct.x+"%"; startPin.style.top = aPct.y+"%";
+  startPin.innerHTML = `<span class="tag">${hintSpotLabel(fromSpot)}</span><div class="dot"></div>`;
+  const endPin = document.createElement("div");
+  endPin.className = "hint-pin end";
+  endPin.style.left = bPct.x+"%"; endPin.style.top = bPct.y+"%";
+  endPin.innerHTML = `<span class="tag">${hintSpotLabel(toSpot)}</span><div class="dot"></div>`;
+  overlay.appendChild(startPin);
+  overlay.appendChild(endPin);
+
+  const path = buildFootpath(aPct, bPct);
+  const pawEls = path.map(p=>{
+    const el = document.createElement("div");
+    el.className = "hint-paw";
+    el.textContent = "🐾";
+    el.style.left = p.x+"%"; el.style.top = p.y+"%";
+    el.style.setProperty("--r", p.r+"deg");
+    overlay.appendChild(el);
+    return el;
+  });
+  const endMark = document.createElement("div");
+  endMark.className = "hint-endmark";
+  endMark.style.left = bPct.x+"%"; endMark.style.top = bPct.y+"%";
+  overlay.appendChild(endMark);
+
+  await new Promise(r=>setTimeout(r, 450));
+  img.style.transform = `translate(${tx1}px,${ty1}px) scale(${scale1})`;
+  await new Promise(r=>setTimeout(r, 1450));
+  overlay.classList.add("show");
+  await new Promise(r=>setTimeout(r, 250));
+  for(const el of pawEls){
+    el.classList.add("go");
+    await new Promise(r=>setTimeout(r, 120));
+  }
+  await new Promise(r=>setTimeout(r, 150));
+  endMark.classList.add("go");
+}
+document.getElementById("hint-close").addEventListener("click", ()=>{
+  document.getElementById("hint-modal").classList.remove("open");
+});
+document.getElementById("hint-close-btn").addEventListener("click", ()=>{
+  document.getElementById("hint-modal").classList.remove("open");
+  closeAR();
+  showScreen("screen-map");
+});
+
 /* --- 撮影・保存用の映像合成ヘルパー ---
    CSSの object-fit:cover と同じ考え方で、映像の縦横比を保ったまま
    出力先いっぱいにトリミング描画する。以前はこれをせず単純に
@@ -1334,6 +1591,9 @@ document.getElementById("ar-shutter").addEventListener("click", ()=>{
       await addPhotoToAlbum(activeSpot ? activeSpot.name : "?", blob);
       showToast("フォトを保存しました！ダイアリーで見られます");
       logTelemetry({event:"ar_save", success:true, arMode: window.AR3D.getMode() || currentArMode});
+      await playCaptureEffect(out.toDataURL("image/jpeg", 0.7));
+      const nextSpot = getNextSpot(activeSpot);
+      if(nextSpot) openHintOverlay(activeSpot, nextSpot);
     }catch(e){
       showToast("保存に失敗しました（端末の空き容量をご確認ください）");
       logTelemetry({event:"ar_save", success:false, arMode: window.AR3D.getMode() || currentArMode, detail:String(e && e.message || e)});
