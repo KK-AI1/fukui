@@ -1,9 +1,13 @@
-const CACHE_NAME = "dino-map-v2";
+const CACHE_NAME = "dino-map-v3";
 const ASSETS = ["./", "./index.html", "./manifest.json"];
 
 // index.html/manifest.jsonなど「アプリの骨格」は毎回まずネットワークから
 // 取りに行き、更新をすぐ反映する（オフライン時のみキャッシュにフォールバック）。
-// .glb / three.js などの重い静的アセットは変わらないのでキャッシュ優先のままにする。
+// .glb / three.js などの重い静的アセットは、キャッシュがあればまず即座に
+// それを返しつつ裏で必ず再取得してキャッシュを更新する（stale-while-revalidate）。
+// 以前は単純なキャッシュ優先だったため、同じファイル名のまま中身だけ差し替えた
+// 場合（.glbモデルの軽量化・差し替えなど）に、一度でもキャッシュした端末では
+// 古い中身がずっと表示され続けるという問題があった。
 const NETWORK_FIRST_PATHS = ["/", "/index.html", "/manifest.json", "/sw.js"];
 
 function isNetworkFirst(url){
@@ -42,12 +46,14 @@ self.addEventListener("fetch", event => {
   }
 
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      return cached || fetch(event.request).then(res => {
-        const resClone = res.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, resClone));
-        return res;
-      }).catch(() => cached);
-    })
+    caches.open(CACHE_NAME).then(cache =>
+      cache.match(event.request).then(cached => {
+        const update = fetch(event.request).then(res => {
+          cache.put(event.request, res.clone());
+          return res;
+        }).catch(() => cached);
+        return cached || update;
+      })
+    )
   );
 });

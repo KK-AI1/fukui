@@ -665,6 +665,15 @@ const SPOT_MAP_POS = {
   // マップの外から入ってくる位置として南南東の縁の外側に仮置きする。
   "bonus-sankankaikan": {x:85, y:111}
 };
+// 産業会館→福井駅前の実際の徒歩ルート（Googleマップの経路スクショを目視でデジタイズし、
+// 地図上の2地点に合わせて拡大縮小・回転した座標列。他の区間と違い、これは実際の道の形。）
+const REAL_ROUTE_SANKAN = [
+  {x:85.00, y:111.00},{x:85.18, y:105.67},{x:85.07, y:100.65},{x:84.59, y:95.87},
+  {x:83.61, y:91.40},{x:82.26, y:87.16},{x:80.91, y:82.93},{x:79.31, y:78.85},
+  {x:77.52, y:74.89},{x:75.64, y:72.26},{x:73.35, y:71.16},{x:71.47, y:71.08},
+  {x:70.42, y:69.20},{x:70.21, y:65.51},{x:70.73, y:62.00},{x:70.57, y:58.92},
+  {x:69.03, y:57.35},{x:67.87, y:54.90},{x:67.00, y:51.00}
+];
 function getNextSpot(spot){
   if(!spot) return null;
   if(spot.id === "bonus-sankankaikan") return SPOTS[0]; // 産業会館→福井駅前(恐竜広場)へ
@@ -1530,7 +1539,7 @@ async function openHintOverlay(fromSpot, toSpot){
   overlay.appendChild(endPin);
 
   const useWalker = fromSpot.id === "bonus-sankankaikan"; // この区間だけ、足あとの代わりに恐竜の後ろ姿を歩かせる
-  const path = buildFootpath(aPct, bPct);
+  const path = useWalker ? REAL_ROUTE_SANKAN : buildFootpath(aPct, bPct);
   const pawEls = useWalker ? [] : path.map(p=>{
     const cp = toCropPct(p);
     const el = document.createElement("div");
@@ -1831,7 +1840,8 @@ function createGroundShadow(radius){
   canvas.width = canvas.height = 128;
   const ctx = canvas.getContext("2d");
   const grad = ctx.createRadialGradient(64,64,0,64,64,64);
-  grad.addColorStop(0, "rgba(0,0,0,0.45)");
+  grad.addColorStop(0, "rgba(0,0,0,0.6)");
+  grad.addColorStop(0.35, "rgba(0,0,0,0.4)");
   grad.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = grad;
   ctx.fillRect(0,0,128,128);
@@ -2031,7 +2041,7 @@ async function openFallback(canvas, modelPaths, loadingEl, options){
       }else if(!centerOnly){
         obj.position.x += SINGLE_MODEL_OFFSET_X;
       }
-      const shadow = createGroundShadow(cfg.heightMeters * 0.35);
+      const shadow = createGroundShadow(cfg.heightMeters * 0.4);
       obj.add(shadow);
       obj.add(createDiscoveryGlow(cfg.heightMeters));
       group.add(obj);
@@ -2386,7 +2396,7 @@ async function openXR(canvas, modelPath, loadingEl, ui, onEnd){
     xrPlacedGroup.visible = false;
     xrPlacedGroup.add(modelObj);
     modelObj.add(createDiscoveryGlow(cfg.heightMeters));
-    xrGroundShadow = createGroundShadow(cfg.heightMeters * 0.35);
+    xrGroundShadow = createGroundShadow(cfg.heightMeters * 0.4);
     xrPlacedGroup.add(xrGroundShadow);
     scene.add(xrPlacedGroup);
 
