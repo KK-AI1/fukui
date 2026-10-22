@@ -421,6 +421,9 @@ body{
       </div>
       <button class="btn btn-primary" id="btn-start">位置情報をONにして冒険をはじめる</button>
       <button class="btn btn-ghost" id="btn-preview" style="margin-top:8px;">(プレビュー) 位置情報なしで地図だけ見る</button>
+      <div id="debug-banner" style="display:none;margin-top:10px;padding:8px 10px;border:1px dashed var(--clay-500);border-radius:10px;font-size:11px;color:var(--clay-700);">
+        🐞 デバッグモード：マップのロック中スポットにも「ストーリーを見る」ボタンが出ます。
+      </div>
       <div class="status-line">
         <span class="dot" id="dot-gps"></span><span id="txt-gps">位置情報: 未確認</span>
       </div>
@@ -644,6 +647,11 @@ const BONUS_SPOTS = [
    （town-map.webp は 792x432。各スポットの位置は画像を目視で
     読み取った概算値。実際の道なりではなく演出用の曲線。）
 ========================================================= */
+/* 動作確認用: URLに ?debug=1 を付けると、GPS/到達判定に関係なく
+   全スポット（番外・ゴール含む）のストーリーをその場で開けるようになる。
+   通常の利用者には見えない（パラメータを付けない限り何も変わらない）。 */
+const DEBUG_MODE = new URLSearchParams(location.search).get("debug") === "1";
+
 const MAP_W = 792, MAP_H = 432;
 const SPOT_MAP_POS = {
   1: {x:67, y:51},  // 恐竜広場
@@ -1218,7 +1226,8 @@ function buildSpotCard(spot, opts){
       <div class="spot-top">
         <p class="spot-name">${spot.name}</p>
         <span class="status-chip locked">${dist !== null ? "約" + Math.round(dist) + "m" : "位置情報待ち"}</span>
-      </div>`;
+      </div>
+      ${DEBUG_MODE ? `<button class="spot-btn ghost" ${openAttr}>🐞 ストーリーを見る（デバッグ）</button>` : ""}`;
   }
   card.innerHTML = `<div class="spot-num">${numLabel}</div><div class="spot-body">${bodyHtml}</div>`;
   return card;
@@ -1251,11 +1260,13 @@ function renderSpotList(){
     const pct = Math.round((doneCount / SPOTS.length) * 100);
     goalBody = `
       <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
-      <div class="remain">残り${remain}スポットを踏破すると解放されます。</div>`;
+      <div class="remain">残り${remain}スポットを踏破すると解放されます。</div>
+      ${DEBUG_MODE ? `<button class="spot-btn ghost" id="btn-open-goal-debug">🐞 ストーリーを見る（デバッグ）</button>` : ""}`;
   }else if(!goalHere){
     goalBody = `
       <div class="progress-bar"><div class="progress-fill" style="width:100%"></div></div>
-      <div class="remain">${goalDist!==null ? "恐竜広場まで約"+Math.round(goalDist)+"m" : "位置情報待ち"}</div>`;
+      <div class="remain">${goalDist!==null ? "恐竜広場まで約"+Math.round(goalDist)+"m" : "位置情報待ち"}</div>
+      ${DEBUG_MODE ? `<button class="spot-btn ghost" id="btn-open-goal-debug">🐞 ストーリーを見る（デバッグ）</button>` : ""}`;
   }else{
     // アンケートに入る前の離脱を減らすため、「答えてから見る」と一度誘導した上で
     // タップを要求するのではなく、恐竜広場に戻ってきた瞬間に自動で開く。
@@ -1290,6 +1301,8 @@ function renderSpotList(){
   list.querySelectorAll("[data-open-bonus]").forEach(btn=>{
     btn.addEventListener("click", ()=> openStory(BONUS_SPOTS.find(s=>s.id===btn.dataset.openBonus)));
   });
+  const goalDebugBtn = document.getElementById("btn-open-goal-debug");
+  if(goalDebugBtn) goalDebugBtn.addEventListener("click", ()=> openStory(GOAL));
   const goalBtn = document.getElementById("btn-open-goal");
   if(goalBtn){
     goalBtn.addEventListener("click", ()=>{
@@ -1740,6 +1753,10 @@ function showToast(msg){
 renderTrail();
 renderSpotList();
 initAlbum();
+if(DEBUG_MODE){
+  const banner = document.getElementById("debug-banner");
+  if(banner) banner.style.display = "block";
+}
 if(progress.started){
   showScreen("screen-map");
   startGPS();
