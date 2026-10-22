@@ -665,14 +665,17 @@ const SPOT_MAP_POS = {
   // マップの外から入ってくる位置として南南東の縁の外側に仮置きする。
   "bonus-sankankaikan": {x:85, y:111}
 };
-// 産業会館→福井駅前の実際の徒歩ルート（Googleマップの経路スクショを目視でデジタイズし、
-// 地図上の2地点に合わせて拡大縮小・回転した座標列。他の区間と違い、これは実際の道の形。）
+// 産業会館→福井駅前は町あるきマップの範囲外にあるため、この区間だけ専用の
+// 実写ルート画像（assets/sankan_route_map.png, 530x640, ユーザー提供のGoogle
+// マップ経路スクショそのもの）を背景に使う。ワープ変換はせず、画像自身の
+// 座標系（%表記）でそのまま足あと／ピンを置く。先頭=産業会館、末尾=福井駅前。
+const SANKAN_ROUTE_IMG = {w:530, h:640};
 const REAL_ROUTE_SANKAN = [
-  {x:85.00, y:111.00},{x:85.18, y:105.67},{x:85.07, y:100.65},{x:84.59, y:95.87},
-  {x:83.61, y:91.40},{x:82.26, y:87.16},{x:80.91, y:82.93},{x:79.31, y:78.85},
-  {x:77.52, y:74.89},{x:75.64, y:72.26},{x:73.35, y:71.16},{x:71.47, y:71.08},
-  {x:70.42, y:69.20},{x:70.21, y:65.51},{x:70.73, y:62.00},{x:70.57, y:58.92},
-  {x:69.03, y:57.35},{x:67.87, y:54.90},{x:67.00, y:51.00}
+  {x:68.87, y:93.12},{x:72.08, y:86.72},{x:74.34, y:80.47},{x:75.47, y:74.22},
+  {x:75.09, y:67.97},{x:73.58, y:61.72},{x:72.08, y:55.47},{x:69.81, y:49.22},
+  {x:66.98, y:42.97},{x:63.21, y:38.28},{x:57.55, y:35.16},{x:52.45, y:33.59},
+  {x:50.57, y:30.47},{x:51.89, y:25.78},{x:55.09, y:21.88},{x:56.23, y:17.97},
+  {x:52.83, y:14.84},{x:50.94, y:10.94},{x:50.57, y:5.47}
 ];
 function getNextSpot(spot){
   if(!spot) return null;
@@ -1502,6 +1505,66 @@ async function openHintOverlay(fromSpot, toSpot){
   overlay.innerHTML = "";
   overlay.classList.remove("show");
 
+  const useWalker = fromSpot.id === "bonus-sankankaikan"; // この区間だけ、足あとの代わりに恐竜の後ろ姿を歩かせる
+
+  if(useWalker){
+    // 専用の実写ルート画像を使う。ワープ変換不要、画像自身の%座標をそのまま使う。
+    img.src = "assets/sankan_route_map.png";
+    card.style.aspectRatio = `${SANKAN_ROUTE_IMG.w}/${SANKAN_ROUTE_IMG.h}`;
+    img.style.width = SANKAN_ROUTE_IMG.w+"px";
+    img.style.height = SANKAN_ROUTE_IMG.h+"px";
+    const cardW = card.clientWidth, cardH = card.clientHeight;
+    const fit = Math.min(cardW/SANKAN_ROUTE_IMG.w, cardH/SANKAN_ROUTE_IMG.h);
+    const tx = (cardW - SANKAN_ROUTE_IMG.w*fit)/2, ty = (cardH - SANKAN_ROUTE_IMG.h*fit)/2;
+    img.style.transition = "none";
+    img.style.transform = `translate(${tx}px,${ty}px) scale(${fit})`;
+    void img.offsetWidth;
+
+    const path = REAL_ROUTE_SANKAN;
+    const startP = path[0], endP = path[path.length-1];
+
+    const startPin = document.createElement("div");
+    startPin.className = "hint-pin start";
+    startPin.style.left = startP.x+"%"; startPin.style.top = startP.y+"%";
+    startPin.innerHTML = `<span class="tag">${hintSpotLabel(fromSpot)}</span><div class="dot"></div>`;
+    const endPin = document.createElement("div");
+    endPin.className = "hint-pin end";
+    endPin.style.left = endP.x+"%"; endPin.style.top = endP.y+"%";
+    endPin.innerHTML = `<span class="tag">福井駅前</span><div class="dot"></div>`;
+    overlay.appendChild(startPin);
+    overlay.appendChild(endPin);
+
+    const walkerEl = document.createElement("img");
+    walkerEl.className = "hint-walker";
+    walkerEl.src = "assets/dino_back_sprite.png";
+    walkerEl.alt = "恐竜の後ろ姿";
+    walkerEl.style.left = startP.x+"%"; walkerEl.style.top = startP.y+"%";
+    overlay.appendChild(walkerEl);
+
+    const endMark = document.createElement("div");
+    endMark.className = "hint-endmark";
+    endMark.style.left = endP.x+"%"; endMark.style.top = endP.y+"%";
+    overlay.appendChild(endMark);
+
+    await new Promise(r=>setTimeout(r, 450));
+    overlay.classList.add("show");
+    await new Promise(r=>setTimeout(r, 250));
+    walkerEl.classList.add("show");
+    for(const p of path){
+      walkerEl.style.left = p.x+"%"; walkerEl.style.top = p.y+"%";
+      await new Promise(r=>setTimeout(r, 220));
+    }
+    await new Promise(r=>setTimeout(r, 260));
+    endMark.classList.add("go");
+    return;
+  }
+
+  // 他の区間は町あるきマップ（792x432）を使う。前回useWalkerで変更した
+  // インライン style が残っていることがあるのでリセットする。
+  img.src = "assets/town-map.webp";
+  card.style.aspectRatio = "";
+  img.style.width = ""; img.style.height = "";
+
   const cardW = card.clientWidth, cardH = card.clientHeight;
   const scale0 = Math.min(cardW/MAP_W, cardH/MAP_H);
   const tx0 = (cardW - MAP_W*scale0)/2, ty0 = (cardH - MAP_H*scale0)/2;
@@ -1530,17 +1593,15 @@ async function openHintOverlay(fromSpot, toSpot){
   startPin.className = "hint-pin start";
   startPin.style.left = aCrop.x+"%"; startPin.style.top = aCrop.y+"%";
   startPin.innerHTML = `<span class="tag">${hintSpotLabel(fromSpot)}</span><div class="dot"></div>`;
-  const endLabel = fromSpot.id === "bonus-sankankaikan" ? "福井駅前" : hintSpotLabel(toSpot);
   const endPin = document.createElement("div");
   endPin.className = "hint-pin end";
   endPin.style.left = bCrop.x+"%"; endPin.style.top = bCrop.y+"%";
-  endPin.innerHTML = `<span class="tag">${endLabel}</span><div class="dot"></div>`;
+  endPin.innerHTML = `<span class="tag">${hintSpotLabel(toSpot)}</span><div class="dot"></div>`;
   overlay.appendChild(startPin);
   overlay.appendChild(endPin);
 
-  const useWalker = fromSpot.id === "bonus-sankankaikan"; // この区間だけ、足あとの代わりに恐竜の後ろ姿を歩かせる
-  const path = useWalker ? REAL_ROUTE_SANKAN : buildFootpath(aPct, bPct);
-  const pawEls = useWalker ? [] : path.map(p=>{
+  const path = buildFootpath(aPct, bPct);
+  const pawEls = path.map(p=>{
     const cp = toCropPct(p);
     const el = document.createElement("div");
     el.className = "hint-paw";
@@ -1550,15 +1611,6 @@ async function openHintOverlay(fromSpot, toSpot){
     overlay.appendChild(el);
     return el;
   });
-  let walkerEl = null;
-  if(useWalker){
-    walkerEl = document.createElement("img");
-    walkerEl.className = "hint-walker";
-    walkerEl.src = "assets/dino_back_sprite.png";
-    walkerEl.alt = "恐竜の後ろ姿";
-    walkerEl.style.left = aCrop.x+"%"; walkerEl.style.top = aCrop.y+"%";
-    overlay.appendChild(walkerEl);
-  }
   const endMark = document.createElement("div");
   endMark.className = "hint-endmark";
   endMark.style.left = bCrop.x+"%"; endMark.style.top = bCrop.y+"%";
@@ -1569,22 +1621,11 @@ async function openHintOverlay(fromSpot, toSpot){
   await new Promise(r=>setTimeout(r, 1450));
   overlay.classList.add("show");
   await new Promise(r=>setTimeout(r, 250));
-  if(useWalker){
-    walkerEl.classList.add("show");
-    for(const p of path){
-      const cp = toCropPct(p);
-      walkerEl.style.left = cp.x+"%"; walkerEl.style.top = cp.y+"%";
-      await new Promise(r=>setTimeout(r, 220));
-    }
-    walkerEl.style.left = bCrop.x+"%"; walkerEl.style.top = bCrop.y+"%";
-    await new Promise(r=>setTimeout(r, 260));
-  }else{
-    for(const el of pawEls){
-      el.classList.add("go");
-      await new Promise(r=>setTimeout(r, 120));
-    }
-    await new Promise(r=>setTimeout(r, 150));
+  for(const el of pawEls){
+    el.classList.add("go");
+    await new Promise(r=>setTimeout(r, 120));
   }
+  await new Promise(r=>setTimeout(r, 150));
   endMark.classList.add("go");
 }
 document.getElementById("hint-close").addEventListener("click", ()=>{
