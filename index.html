@@ -629,7 +629,7 @@ const BONUS_SPOTS = [
     lat:36.03684, lng:136.23062, radius:1000,
     note:"福井市下六条町103番地。敷地・駐車場が広いため半径1kmに設定（※複数の地図サービスの座標を平均した概算値。現地確認・微調整推奨）。",
     arrive:"大きな建物のまわりをうろうろしていたら、人懐っこい恐竜とばったり出会った。迷子のフクイちゃん一家とは別の、この街のどこかに住んでいる恐竜みたい。",
-    hint:"街なかに戻って、残りのスポットもめぐってみよう！",
+    hint:"恐竜：<br>「福井駅前の方に行くと、面白いものが見られるよ！」<br><b>▶ 福井駅前へ戻ろう</b>",
     ar:"元気いっぱい尻尾を振る恐竜が、ひょっこり顔を出す。",
     model:"assets/models/garden_dino.glb"
   }
@@ -648,10 +648,15 @@ const SPOT_MAP_POS = {
   4: {x:24, y:22},  // 佐佳枝廼社
   5: {x:34, y:57},  // 新栄商店街・ガレリア元町
   6: {x:63, y:66},  // ハピリン
-  goal: {x:67, y:51} // 恐竜広場（ゴール＝スタートと同じ位置）
+  goal: {x:67, y:51}, // 恐竜広場（ゴール＝スタートと同じ位置）
+  // 福井県産業会館は町あるきマップの範囲外（南に約2.9km）にあるため、
+  // マップの外から入ってくる位置として南南東の縁の外側に仮置きする。
+  "bonus-sankankaikan": {x:85, y:111}
 };
 function getNextSpot(spot){
-  if(!spot || typeof spot.id !== "number") return null; // ゴール・番外スポットには「次」がない
+  if(!spot) return null;
+  if(spot.id === "bonus-sankankaikan") return SPOTS[0]; // 産業会館→福井駅前(恐竜広場)へ
+  if(typeof spot.id !== "number") return null; // ゴール・他の番外スポットには「次」がない
   const idx = SPOTS.findIndex(s=>s.id===spot.id);
   if(idx===-1) return null;
   return SPOTS[idx+1] || GOAL;
@@ -1486,30 +1491,41 @@ async function openHintOverlay(fromSpot, toSpot){
   const scale1 = cardW/crop.w;
   const tx1 = -crop.x*scale1, ty1 = -crop.y*scale1;
 
+  // オーバーレイ(ピン・足あと)は常にカード全体を覆う固定サイズの層なので、
+  // 画像側の拡大後の表示範囲(crop)を基準にしたパーセントへ変換してから置く。
+  // そうしないと、ズーム後に実際の地図上の位置とズレてしまう。
+  function toCropPct(mapPct){
+    const px = mapPct.x/100*MAP_W, py = mapPct.y/100*MAP_H;
+    return {x:(px-crop.x)/crop.w*100, y:(py-crop.y)/crop.h*100};
+  }
+  const aCrop = toCropPct(aPct), bCrop = toCropPct(bPct);
+
   const startPin = document.createElement("div");
   startPin.className = "hint-pin start";
-  startPin.style.left = aPct.x+"%"; startPin.style.top = aPct.y+"%";
+  startPin.style.left = aCrop.x+"%"; startPin.style.top = aCrop.y+"%";
   startPin.innerHTML = `<span class="tag">${hintSpotLabel(fromSpot)}</span><div class="dot"></div>`;
+  const endLabel = fromSpot.id === "bonus-sankankaikan" ? "福井駅前" : hintSpotLabel(toSpot);
   const endPin = document.createElement("div");
   endPin.className = "hint-pin end";
-  endPin.style.left = bPct.x+"%"; endPin.style.top = bPct.y+"%";
-  endPin.innerHTML = `<span class="tag">${hintSpotLabel(toSpot)}</span><div class="dot"></div>`;
+  endPin.style.left = bCrop.x+"%"; endPin.style.top = bCrop.y+"%";
+  endPin.innerHTML = `<span class="tag">${endLabel}</span><div class="dot"></div>`;
   overlay.appendChild(startPin);
   overlay.appendChild(endPin);
 
   const path = buildFootpath(aPct, bPct);
   const pawEls = path.map(p=>{
+    const cp = toCropPct(p);
     const el = document.createElement("div");
     el.className = "hint-paw";
     el.textContent = "🐾";
-    el.style.left = p.x+"%"; el.style.top = p.y+"%";
+    el.style.left = cp.x+"%"; el.style.top = cp.y+"%";
     el.style.setProperty("--r", p.r+"deg");
     overlay.appendChild(el);
     return el;
   });
   const endMark = document.createElement("div");
   endMark.className = "hint-endmark";
-  endMark.style.left = bPct.x+"%"; endMark.style.top = bPct.y+"%";
+  endMark.style.left = bCrop.x+"%"; endMark.style.top = bCrop.y+"%";
   overlay.appendChild(endMark);
 
   await new Promise(r=>setTimeout(r, 450));
