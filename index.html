@@ -1,0 +1,2513 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#8a5a2b">
+<title>フクイちゃんとまいごの大冒険 - 福井駅周辺ハイブリッド恐竜周遊マップ</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/build/three.module.js"
+  }
+}
+</script>
+<style>
+:root{
+  --amber-50:#FBF3E6; --amber-100:#F3DCAF; --amber-300:#E0A855; --amber-500:#C97F2B;
+  --amber-700:#8F5518; --amber-900:#4A2C0C;
+  --moss-100:#E4EBD9; --moss-400:#7FA35C; --moss-600:#5C7E42; --moss-700:#3E5C29;
+  --clay-400:#D97347; --clay-500:#C1552F; --clay-600:#A8431F; --clay-700:#7E3319;
+  --ink:#2B2114; --ink-soft:#5B4A34; --ink-faint:#9C8A70; --paper:#FBF3E6;
+  --line: rgba(74,44,12,0.14);
+  --shadow-sm: 0 1px 2px rgba(74,44,12,0.06);
+  --shadow-md: 0 6px 16px -4px rgba(74,44,12,0.18), 0 2px 4px rgba(74,44,12,0.08);
+  --shadow-lg: 0 16px 32px -8px rgba(74,44,12,0.26), 0 4px 10px rgba(74,44,12,0.1);
+  --radius-card:18px;
+  --radius-pill:999px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;height:100%;}
+body{
+  font-family:"Noto Sans JP", sans-serif;
+  background:
+    radial-gradient(ellipse at 15% -10%, #FFF9EE 0%, var(--paper) 45%),
+    radial-gradient(ellipse at 100% 0%, rgba(127,163,92,0.08) 0%, transparent 40%),
+    var(--paper);
+  color:var(--ink);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+.font-display{font-family:"Zen Maru Gothic", sans-serif;}
+#app{max-width:480px;margin:0 auto;min-height:100vh;position:relative;padding-bottom:88px;}
+
+/* ---------- top brand strip ---------- */
+.brand-strip{
+  display:flex;align-items:center;gap:12px;
+  padding:16px 20px 12px;
+}
+.brand-strip .badge{
+  width:38px;height:38px;border-radius:13px;
+  background:linear-gradient(155deg, var(--amber-500), var(--clay-600));color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-family:"Zen Maru Gothic";font-weight:900;font-size:16px;flex-shrink:0;
+  box-shadow:var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.3);
+}
+.brand-strip .title{font-family:"Zen Maru Gothic";font-weight:900;font-size:14px;color:var(--amber-900);letter-spacing:.2px;}
+.brand-strip .sub{font-size:11px;color:var(--ink-soft);margin-top:2px;}
+
+/* ---------- footprint trail (signature element) ---------- */
+.trail{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:4px 20px 18px;position:relative;
+}
+.trail::before{
+  content:"";position:absolute;left:32px;right:32px;top:19px;height:2px;
+  background:repeating-linear-gradient(90deg,var(--amber-300) 0 6px, transparent 6px 12px);
+  z-index:0;
+}
+.trail-step{
+  position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:5px;
+  width:14.2%;
+}
+.trail-step .paw{
+  width:28px;height:28px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;border:2px solid var(--amber-300);background:#fff;color:var(--amber-500);
+  box-shadow:var(--shadow-sm);
+  transition:transform .2s, box-shadow .2s, background .2s, border-color .2s;
+}
+.trail-step.done .paw{background:linear-gradient(155deg,var(--moss-400),var(--moss-600));border-color:var(--moss-600);color:#fff;box-shadow:var(--shadow-sm), 0 0 0 3px rgba(127,163,92,.15);}
+.trail-step.current .paw{
+  background:linear-gradient(155deg,var(--clay-400),var(--clay-600));border-color:var(--clay-600);color:#fff;
+  box-shadow:0 0 0 5px rgba(193,85,47,0.16), 0 0 0 9px rgba(193,85,47,0.08), var(--shadow-sm);
+  transform:scale(1.1);
+}
+.trail-step .num{font-size:9px;color:var(--ink-faint);font-weight:700;}
+.trail-step.current .num{color:var(--clay-600);}
+
+/* ---------- screens ---------- */
+.screen{display:none;padding:0 20px;animation:fade .35s ease;}
+.screen.active{display:block;}
+@keyframes fade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+/* ---------- start screen ---------- */
+.hero-card{
+  background:linear-gradient(165deg, var(--amber-100), var(--amber-50) 70%);
+  border:1px solid var(--line);border-radius:var(--radius-card);
+  box-shadow:var(--shadow-md);
+  padding:28px 22px;text-align:center;margin-top:6px;
+}
+.hero-card .egg{font-size:52px;line-height:1;margin-bottom:10px;filter:drop-shadow(0 6px 10px rgba(74,44,12,0.15));}
+.hero-card h1{font-family:"Zen Maru Gothic";font-weight:900;font-size:22px;color:var(--amber-900);margin:0 0 10px;}
+.hero-card p{font-size:14px;line-height:1.8;color:var(--ink-soft);margin:0 0 4px;}
+.story-box{
+  margin-top:16px;background:#fff;border:1px solid var(--line);
+  border-radius:14px;padding:16px 18px;text-align:left;font-size:13.5px;line-height:1.9;color:var(--ink);
+  box-shadow:var(--shadow-sm);
+}
+.story-box b{color:var(--clay-700);}
+
+.btn{
+  width:100%;padding:15px;border:none;border-radius:var(--radius-pill);
+  font-family:"Zen Maru Gothic";font-weight:700;font-size:15px;
+  cursor:pointer;transition:transform .15s, box-shadow .15s;
+}
+.btn:active{transform:scale(.97);}
+.btn-primary{
+  background:linear-gradient(155deg,var(--clay-400),var(--clay-600));color:#fff;margin-top:18px;
+  box-shadow:0 8px 20px rgba(193,85,47,0.35), inset 0 1px 0 rgba(255,255,255,0.2);
+}
+.btn-secondary{background:#fff;color:var(--amber-900);border:1.5px solid var(--amber-300);box-shadow:var(--shadow-sm);}
+.btn-ghost{background:transparent;color:var(--ink-soft);border:1px dashed var(--line);font-size:12.5px;font-family:"Noto Sans JP";font-weight:500;padding:10px;border-radius:14px;}
+
+.status-line{
+  display:flex;align-items:center;gap:8px;justify-content:center;
+  margin-top:14px;font-size:12px;color:var(--ink-soft);
+}
+.dot{width:8px;height:8px;border-radius:50%;background:#ccc;flex-shrink:0;}
+.dot.ok{background:var(--moss-400);}
+.dot.warn{background:var(--clay-500);}
+
+/* ---------- map / spot list ---------- */
+.section-label{
+  font-family:"Zen Maru Gothic";font-weight:700;font-size:13px;color:var(--amber-900);
+  margin:18px 2px 10px;display:flex;align-items:center;gap:6px;
+}
+.section-label .count{
+  margin-left:auto;font-size:11px;font-weight:500;color:var(--ink-faint);
+  background:#fff;border:1px solid var(--line);padding:3px 9px;border-radius:var(--radius-pill);
+}
+.spot-card{
+  display:flex;gap:12px;align-items:flex-start;
+  background:#fff;border:1px solid var(--line);border-radius:16px;
+  box-shadow:var(--shadow-sm);
+  padding:13px 15px;margin-bottom:10px;position:relative;overflow:hidden;
+  transition:box-shadow .2s;
+}
+.spot-card.locked{background:#FBF6EC;box-shadow:none;}
+.spot-card.locked .spot-name{color:var(--ink-soft);}
+.spot-card.arrived{background:linear-gradient(180deg,#fff,var(--moss-100) 240%);opacity:.85;}
+.spot-card.here{
+  border:1.5px solid var(--clay-500);
+  box-shadow:var(--shadow-lg), 0 0 0 4px rgba(193,85,47,0.1);
+  background:linear-gradient(180deg,#fff,#FFF6EE);
+}
+.spot-num{
+  font-family:"Zen Maru Gothic";font-weight:900;font-size:14px;
+  width:34px;height:34px;border-radius:11px;background:var(--amber-100);color:var(--amber-700);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.spot-card.arrived .spot-num{background:linear-gradient(155deg,var(--moss-400),var(--moss-600));color:#fff;}
+.spot-card.here .spot-num{background:linear-gradient(155deg,var(--clay-400),var(--clay-600));color:#fff;}
+.spot-body{flex:1;min-width:0;}
+.spot-top{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.spot-name{font-family:"Zen Maru Gothic";font-weight:700;font-size:14px;margin:0;line-height:1.4;}
+.status-chip{font-size:10px;font-weight:700;padding:3px 9px;border-radius:var(--radius-pill);white-space:nowrap;flex-shrink:0;}
+.status-chip.done{background:var(--moss-100);color:var(--moss-700);}
+.status-chip.here{background:var(--clay-500);color:#fff;box-shadow:0 0 0 3px rgba(193,85,47,.16);}
+.status-chip.locked{background:#EFE6D4;color:var(--ink-faint);}
+.dist-row{display:flex;align-items:center;gap:6px;margin:6px 0 4px;}
+.dist-ring{
+  width:14px;height:14px;border-radius:50%;flex-shrink:0;
+  background:conic-gradient(var(--clay-500) 0deg var(--pct, 0deg), var(--line) var(--pct, 0deg) 360deg);
+}
+.dist-text{font-size:11.5px;color:var(--ink-soft);}
+.spot-hint{font-size:12px;color:var(--ink-faint);margin:2px 0 8px;line-height:1.6;}
+.spot-btn{
+  margin-top:2px;font-size:12px;padding:9px 16px;border-radius:var(--radius-pill);border:none;
+  background:linear-gradient(155deg,var(--clay-400),var(--clay-600));color:#fff;
+  font-family:"Zen Maru Gothic";font-weight:700;box-shadow:var(--shadow-sm);
+}
+.spot-btn.ghost{
+  background:transparent;color:var(--moss-700);border:1px solid var(--line);
+  box-shadow:none;padding:6px 13px;font-size:11px;margin-top:4px;
+}
+
+/* ---------- goal card ---------- */
+.goal-card{
+  margin-top:4px;padding:18px;border-radius:var(--radius-card);
+  background:linear-gradient(160deg, var(--amber-900), var(--clay-700) 130%);
+  color:#fff;box-shadow:var(--shadow-lg);position:relative;overflow:hidden;
+}
+.goal-card::before{content:"🏁";position:absolute;right:-8px;top:-16px;font-size:96px;opacity:.1;}
+.goal-card.ready{box-shadow:var(--shadow-lg), 0 0 0 3px rgba(193,85,47,.3);}
+.goal-card .goal-tag{font-size:11px;font-weight:700;opacity:.75;letter-spacing:.08em;}
+.goal-card .goal-name{font-family:"Zen Maru Gothic";font-weight:900;font-size:16px;margin:4px 0 10px;position:relative;}
+.goal-card .goal-note{font-size:12px;opacity:.85;line-height:1.7;margin:0 0 14px;position:relative;}
+.goal-card .progress-bar{height:6px;border-radius:99px;background:rgba(255,255,255,.18);overflow:hidden;margin-bottom:10px;}
+.goal-card .progress-fill{height:100%;background:linear-gradient(90deg,#FFD79B,#fff);border-radius:99px;transition:width .3s;}
+.goal-card .remain{font-size:11.5px;opacity:.82;}
+.goal-card .spot-btn{background:#fff;color:var(--clay-700);box-shadow:0 6px 16px rgba(0,0,0,.25);}
+
+/* ---------- AR screen ---------- */
+.ar-wrap{position:relative;width:100%;aspect-ratio:3/4;border-radius:22px;overflow:hidden;background:#111;margin-top:4px;box-shadow:var(--shadow-lg);}
+#ar-video{width:100%;height:100%;object-fit:cover;}
+#ar-gl{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+.ar-top-bar{
+  position:absolute;top:0;left:0;right:0;z-index:5;padding:14px 14px 34px;
+  background:linear-gradient(180deg, rgba(0,0,0,.5), transparent);
+  display:flex;align-items:flex-start;justify-content:space-between;gap:8px;
+}
+.ar-close-btn{
+  width:32px;height:32px;border-radius:50%;background:rgba(10,14,10,.42);color:#fff;border:1px solid rgba(255,255,255,.16);
+  display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;backdrop-filter:blur(8px);flex-shrink:0;
+}
+.ar-title-pill{
+  background:rgba(10,14,10,.42);color:#fff;font-family:"Zen Maru Gothic";font-weight:700;font-size:12.5px;
+  padding:7px 15px;border-radius:var(--radius-pill);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.16);
+  max-width:calc(100% - 80px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.ar-top-spacer{width:32px;flex-shrink:0;}
+.ar-overlay-ui{position:absolute;left:0;right:0;bottom:0;z-index:5;padding:18px;display:flex;gap:10px;justify-content:center;
+  background:linear-gradient(0deg, rgba(0,0,0,.4), transparent);}
+.ar-shutter{
+  width:64px;height:64px;border-radius:50%;background:#fff;border:4px solid rgba(255,255,255,.4);
+  box-shadow:0 10px 24px rgba(0,0,0,.35);cursor:pointer;
+}
+.ar-hint-badge{
+  position:absolute;top:66px;left:14px;right:14px;z-index:4;background:rgba(10,14,10,.46);color:#fff;
+  font-size:12px;padding:9px 14px;border-radius:14px;line-height:1.5;backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,.12);
+}
+.ar-reticle-hint{
+  position:absolute;top:118px;left:14px;right:14px;z-index:4;background:rgba(10,14,10,.4);color:#fff;
+  font-size:11.5px;padding:7px 14px;border-radius:12px;line-height:1.5;text-align:center;backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,.12);
+}
+.ar-offscreen-arrow{
+  position:absolute;top:50%;left:50%;width:44px;height:44px;margin:-22px;z-index:4;
+  display:flex;align-items:center;justify-content:center;font-size:20px;color:#FFD79B;
+  background:rgba(10,14,10,.42);border-radius:50%;pointer-events:none;backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,.14);
+  transition:transform .1s linear;
+}
+.ar-place-pill{
+  position:absolute;left:16px;right:16px;bottom:74px;width:auto;z-index:5;
+  background:linear-gradient(155deg,var(--clay-400),var(--clay-600));color:#fff;border:none;
+  font-family:"Zen Maru Gothic";font-weight:900;font-size:14px;padding:13px 20px;border-radius:var(--radius-pill);
+  box-shadow:0 10px 22px rgba(193,85,47,.5), inset 0 1px 0 rgba(255,255,255,.25);
+}
+.ar-caption{display:none;}
+
+/* ---------- album ---------- */
+.album-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;}
+.album-slot{
+  aspect-ratio:1;border-radius:14px;background:var(--amber-100);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+  border:1px solid var(--line);position:relative;box-shadow:var(--shadow-sm);
+}
+.album-slot img{width:100%;height:100%;object-fit:cover;}
+.album-slot .placeholder{font-size:20px;color:var(--amber-500);opacity:.5;}
+.album-slot .label{position:absolute;bottom:3px;right:6px;font-size:9px;color:#fff;background:rgba(0,0,0,.4);padding:1px 5px;border-radius:8px;}
+
+/* ---------- bottom nav ---------- */
+.tabbar{
+  position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;
+  background:rgba(251,243,230,0.88);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  border-top:1px solid var(--line);
+  display:flex;padding:9px 10px calc(9px + env(safe-area-inset-bottom));
+  box-shadow:0 -8px 20px rgba(74,44,12,0.08);
+  z-index:20;
+}
+.tab{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative;
+  background:none;border:none;font-size:10.5px;color:var(--ink-faint);
+  font-family:"Noto Sans JP";font-weight:600;padding:6px 0;cursor:pointer;
+}
+.tab.active{color:var(--clay-600);font-weight:700;}
+.tab.active::before{content:"";position:absolute;top:-9px;width:26px;height:3px;background:var(--clay-500);border-radius:99px;}
+.tab .ic{font-size:18px;}
+
+/* ---------- modal ---------- */
+.modal-back{
+  position:fixed;inset:0;background:rgba(43,33,20,.55);z-index:30;
+  display:none;align-items:flex-end;justify-content:center;
+}
+.modal-back.open{display:flex;}
+.modal-sheet{
+  width:100%;max-width:480px;background:var(--paper);border-radius:22px 22px 0 0;
+  padding:22px 22px calc(22px + env(safe-area-inset-bottom));max-height:85vh;overflow-y:auto;
+  box-shadow:0 -16px 40px rgba(43,33,20,.2);
+}
+.modal-sheet h2{font-family:"Zen Maru Gothic";font-size:17px;margin:0 0 10px;color:var(--amber-900);}
+.close-x{float:right;background:none;border:none;font-size:18px;color:var(--ink-soft);cursor:pointer;}
+
+.toast{
+  position:fixed;top:16px;left:50%;transform:translateX(-50%);
+  background:var(--ink);color:#fff;padding:10px 18px;border-radius:var(--radius-pill);font-size:12.5px;
+  box-shadow:var(--shadow-lg);
+  z-index:50;opacity:0;pointer-events:none;transition:opacity .25s;
+}
+.toast.show{opacity:1;}
+
+/* ---------- 撮影演出（フラッシュ→ダイアリーへ飛ぶ写真） ---------- */
+.ar-flash{
+  position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:40;
+}
+.ar-flash.go{animation:arFlashPop .32s ease-out;}
+@keyframes arFlashPop{0%{opacity:0;}15%{opacity:.95;}100%{opacity:0;}}
+
+.ar-flyphoto{
+  position:absolute;width:120px;height:120px;border-radius:14px;overflow:hidden;
+  left:50%;top:44%;transform:translate(-50%,-50%) scale(1) rotate(0deg);
+  box-shadow:0 10px 26px rgba(0,0,0,.4);border:3px solid #fff;
+  background-size:cover;background-position:center;
+  z-index:45;opacity:0;pointer-events:none;
+}
+.ar-flyphoto.go{animation:arFlyToDiary 1.05s cubic-bezier(.56,.04,.49,1.07) forwards;}
+@keyframes arFlyToDiary{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(1) rotate(0deg);}
+  8%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(0deg);}
+  100%{opacity:0; left:96%; top:102%; transform:translate(-50%,-50%) scale(0.08) rotate(16deg);}
+}
+
+.tab{position:relative;}
+.tab .tab-badge{
+  position:absolute;top:2px;right:calc(50% - 20px);background:var(--clay-500);color:#fff;
+  font-size:9.5px;font-weight:700;border-radius:999px;min-width:15px;height:15px;padding:0 3px;
+  display:flex;align-items:center;justify-content:center;transform:scale(0);
+}
+.tab .tab-badge.show{animation:tabBadgePop .4s cubic-bezier(.34,1.56,.64,1) forwards;}
+@keyframes tabBadgePop{0%{transform:scale(0);}70%{transform:scale(1.3);}100%{transform:scale(1);}}
+.tab.pulse .ic{animation:tabIcPulse .55s ease-out;}
+@keyframes tabIcPulse{
+  0%{text-shadow:0 0 0 rgba(193,85,47,0);}
+  40%{text-shadow:0 0 0 10px rgba(193,85,47,.35);}
+  100%{text-shadow:0 0 0 0 rgba(193,85,47,0);}
+}
+
+/* ---------- 次のあしあと（ヒント）モーダル ---------- */
+#hint-modal{z-index:35;} /* AR撮影モーダル(z-index:30)の上に重ねて表示するため */
+.hint-mapcard{
+  position:relative;width:100%;aspect-ratio:354/405;border-radius:16px;overflow:hidden;
+  border:1px solid var(--line);box-shadow:0 4px 14px rgba(0,0,0,.12);background:#cbd8b8;margin-bottom:14px;
+}
+.hint-mapcard > img{position:absolute;left:0;top:0;width:792px;height:432px;transform-origin:0 0;}
+.hint-overlay{position:absolute;inset:0;opacity:0;transition:opacity .4s ease;}
+.hint-overlay.show{opacity:1;}
+.hint-pin{position:absolute;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;}
+.hint-pin .dot{width:13px;height:13px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);}
+.hint-pin.start .dot{background:var(--clay-500);}
+.hint-pin.end .dot{background:var(--moss-700, #3E5C29);}
+.hint-pin .tag{
+  margin-bottom:4px;background:var(--ink);color:#fff;font-size:10px;font-weight:700;
+  padding:3px 7px;border-radius:999px;white-space:nowrap;
+}
+.hint-paw{position:absolute;transform:translate(-50%,-50%) scale(0);font-size:16px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));opacity:0;}
+.hint-paw.go{animation:hintPawPop .32s ease-out forwards;}
+@keyframes hintPawPop{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(0.3) rotate(var(--r,0deg));}
+  60%{opacity:1;transform:translate(-50%,-50%) scale(1.25) rotate(var(--r,0deg));}
+  100%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(var(--r,0deg));}
+}
+.hint-walker{
+  position:absolute;width:34px;height:auto;transform:translate(-50%,-100%);
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));opacity:0;
+  transition:left .22s linear, top .22s linear, opacity .3s ease;
+}
+.hint-walker.show{opacity:1;}
+.hint-endmark{position:absolute;width:24px;height:24px;border-radius:50%;background:rgba(62,92,41,.4);transform:translate(-50%,-50%) scale(0);opacity:0;}
+.hint-endmark.go{animation:hintEndPulse 1s ease-out forwards;}
+@keyframes hintEndPulse{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(0.3);}
+  30%{opacity:1;transform:translate(-50%,-50%) scale(1.6);}
+  60%{opacity:.6;transform:translate(-50%,-50%) scale(1);}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(2.4);}
+}
+
+/* ---------- survey ---------- */
+.survey-q{margin-bottom:20px;}
+.survey-q-label{font-family:"Zen Maru Gothic";font-weight:700;font-size:13.5px;margin-bottom:8px;color:var(--ink);line-height:1.5;}
+.survey-options{display:flex;flex-direction:column;gap:6px;}
+.survey-option{display:flex;align-items:center;gap:8px;font-size:13px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--paper);}
+.survey-option input{flex-shrink:0;width:16px;height:16px;}
+.survey-other-input{width:100%;margin-top:8px;padding:9px 10px;border-radius:10px;border:1px solid var(--line);font-size:13px;font-family:inherit;box-sizing:border-box;}
+.survey-scale{display:flex;justify-content:space-between;gap:6px;}
+.survey-scale-opt{position:relative;flex:1;}
+.survey-scale-opt input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer;}
+.survey-scale-opt span{display:flex;align-items:center;justify-content:center;padding:11px 0;border:1.5px solid var(--line);border-radius:10px;background:var(--paper);font-size:14px;font-weight:700;color:var(--ink-soft);}
+.survey-scale-opt input:checked + span{background:var(--clay-500);border-color:var(--clay-500);color:#fff;}
+.survey-scale-caption{display:flex;justify-content:space-between;font-size:10px;color:var(--ink-soft);margin-top:5px;}
+.survey-textarea{width:100%;min-height:72px;padding:10px;border-radius:10px;border:1px solid var(--line);font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="brand-strip">
+    <div class="badge">福</div>
+    <div>
+      <div class="title">フクイちゃんとまいごの大冒険</div>
+      <div class="sub">福井駅周辺ハイブリッド恐竜周遊マップ</div>
+    </div>
+  </div>
+
+  <div class="trail" id="trail"></div>
+
+  <!-- ============ START SCREEN ============ -->
+  <section class="screen active" id="screen-start">
+    <div class="hero-card">
+      <div class="egg">🥚🦖</div>
+      <h1>フクイちゃんが、まいごに…</h1>
+      <p>北陸新幹線で福井駅に着いたばかりの子恐竜「フクイちゃん」。<br>駅前のにぎわいに驚いて、お父さん・お母さんとはぐれてしまいました。</p>
+      <div class="story-box">
+        <b>「一緒に、お父さん(お母さん)を探して！」</b><br>
+        紙の地図を片手に、6つのスポットをめぐりながら親子の足跡を追いかけよう。スポットに近づくと、フクイちゃんが自動でARで飛び出してくるよ。
+      </div>
+      <button class="btn btn-primary" id="btn-start">位置情報をONにして冒険をはじめる</button>
+      <button class="btn btn-ghost" id="btn-preview" style="margin-top:8px;">(プレビュー) 位置情報なしで地図だけ見る</button>
+      <div id="debug-banner" style="display:none;margin-top:10px;padding:8px 10px;border:1px dashed var(--clay-500);border-radius:10px;font-size:11px;color:var(--clay-700);">
+        🐞 デバッグモード：マップのロック中スポットにも「ストーリーを見る」ボタンが出ます。
+      </div>
+      <div class="status-line">
+        <span class="dot" id="dot-gps"></span><span id="txt-gps">位置情報: 未確認</span>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ============ MAP SCREEN ============ -->
+  <section class="screen" id="screen-map">
+    <div class="section-label">🗺️ 周遊ルート（全6スポット）</div>
+    <div id="spot-list"></div>
+  </section>
+
+  <!-- ============ ALBUM SCREEN ============ -->
+  <section class="screen" id="screen-album">
+    <div class="section-label">📖 ビジュアルダイアリー</div>
+    <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 4px;">撮影したARフォトはここに保存されます。</p>
+    <div class="album-grid" id="album-grid"></div>
+  </section>
+
+  <div class="tabbar">
+    <button class="tab active" data-screen="screen-start"><span class="ic">🏁</span>スタート</button>
+    <button class="tab" data-screen="screen-map"><span class="ic">🗺️</span>マップ</button>
+    <button class="tab" data-screen="screen-album" id="tab-album"><span class="ic">📖</span>ダイアリー<span class="tab-badge" id="album-badge"></span></button>
+  </div>
+</div>
+
+<!-- ============ AR MODAL ============ -->
+<div class="modal-back" id="ar-modal">
+  <div class="modal-sheet">
+    <div class="ar-wrap" id="ar-wrap">
+      <video id="ar-video" autoplay playsinline muted></video>
+      <canvas id="ar-gl"></canvas>
+      <div class="ar-top-bar">
+        <button class="ar-close-btn" id="ar-close">✕</button>
+        <div class="ar-title-pill" id="ar-title">ARで会う</div>
+        <div class="ar-top-spacer"></div>
+      </div>
+      <div class="ar-hint-badge" id="ar-hint">カメラを起動しています…</div>
+      <div class="ar-reticle-hint" id="ar-reticle-hint" style="display:none;">床や地面にカメラを向けてください</div>
+      <div class="ar-offscreen-arrow" id="ar-offscreen-arrow" style="display:none;">➜</div>
+      <button class="ar-place-pill" id="ar-enable-motion" style="display:none;">
+        スマホの動きを有効にして探す
+      </button>
+      <button class="ar-place-pill" id="ar-place-btn" style="display:none;">
+        ここに置く
+      </button>
+      <div class="ar-overlay-ui">
+        <div class="ar-shutter" id="ar-shutter"></div>
+      </div>
+      <div class="ar-flash" id="ar-flash"></div>
+      <div class="ar-flyphoto" id="ar-flyphoto"></div>
+    </div>
+    <p class="ar-caption" id="ar-caption">
+      実写カメラの上に3Dモデルをリアルタイム合成表示しています（three.js使用）。指で画面をドラッグすると、モデルを回転させて色々な角度から見られます。
+    </p>
+  </div>
+</div>
+
+<!-- ============ STORY MODAL ============ -->
+<div class="modal-back" id="story-modal">
+  <div class="modal-sheet">
+    <button class="close-x" id="story-close">✕</button>
+    <h2 id="story-title">スポット名</h2>
+    <div id="story-body" style="font-size:13.5px;line-height:1.9;"></div>
+    <button class="btn btn-primary" id="story-ar-btn">ARでフクイちゃんに会う</button>
+  </div>
+</div>
+
+<!-- ============ 次のあしあと（ヒント）モーダル ============ -->
+<div class="modal-back" id="hint-modal">
+  <div class="modal-sheet">
+    <button class="close-x" id="hint-close">✕</button>
+    <h2 id="hint-title">つぎの あしあと</h2>
+    <div class="hint-mapcard" id="hint-mapcard">
+      <img id="hint-map-img" src="assets/town-map.webp">
+      <div class="hint-overlay" id="hint-overlay"></div>
+    </div>
+    <div id="hint-body" style="font-size:13.5px;line-height:1.9;color:var(--clay-700);font-weight:500;"></div>
+    <button class="btn btn-primary" id="hint-close-btn">マップへ戻る</button>
+  </div>
+</div>
+
+<!-- ============ PRE-SURVEY MODAL ============ -->
+<div class="modal-back" id="survey-pre-modal">
+  <div class="modal-sheet">
+    <button class="close-x" id="survey-pre-close">✕</button>
+    <h2>はじめる前にアンケートにご協力ください</h2>
+    <p style="font-size:12px;color:var(--ink-soft);margin:0 0 16px;">回答は匿名で、福井駅周辺の回遊促進の取り組みの参考としてのみ使用します。</p>
+    <form id="survey-pre-form"></form>
+    <button class="btn btn-primary" id="survey-pre-submit" style="margin-top:6px;">回答してはじめる</button>
+  </div>
+</div>
+
+<!-- ============ POST-SURVEY MODAL ============ -->
+<div class="modal-back" id="survey-post-modal">
+  <div class="modal-sheet">
+    <button class="close-x" id="survey-post-close">✕</button>
+    <h2>最後にアンケートにご協力ください</h2>
+    <p style="font-size:12px;color:var(--ink-soft);margin:0 0 16px;">今回の体験について教えてください（匿名）。</p>
+    <form id="survey-post-form"></form>
+    <button class="btn btn-primary" id="survey-post-submit" style="margin-top:6px;">回答を送信する</button>
+  </div>
+</div>
+
+<!-- ============ PHOTO VIEW MODAL ============ -->
+<div class="modal-back" id="photo-view-modal">
+  <div class="modal-sheet" style="padding:16px;">
+    <button class="close-x" id="photo-view-close">✕</button>
+    <p id="photo-view-title" style="font-family:'Zen Maru Gothic';font-weight:700;font-size:14.5px;margin:0 0 10px;color:var(--amber-900);"></p>
+    <img id="photo-view-img" src="" alt="" style="width:100%;border-radius:14px;display:block;">
+    <button class="btn btn-primary" id="photo-view-save" style="margin-top:14px;">この写真をスマホに保存</button>
+    <p style="font-size:11px;color:var(--ink-soft);margin-top:8px;">保存できない場合は、写真を長押しして「画像を保存」を選んでください。</p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   Phase 1 データ: 6スポットの緯度経度・GPS判定半径
+   （Google Places で取得した実座標。半径は現地の電波/樹木/建物
+    条件を考慮した初期値。Phase 5 の実地試走で微調整すること。）
+========================================================= */
+const SPOTS = [
+  {
+    id:1, name:"① 恐竜広場（スタート地点）",
+    lat:36.0625914, lng:136.2229116, radius:25,
+    note:"屋外の開けた広場。空が開けておりGPS精度は良好な見込み。",
+    arrive:"フクイちゃん：<br>「あれ？ パパとママがいない！」<br>「一緒に探してくれる？」",
+    hint:"フクイちゃん：<br>「あっ、足あとを見つけたよ！」<br>「お城のほうに続いてるみたい！」<br><b>▶ 次の目的地：福井城址</b>",
+    ar:"泣きそうなフクイちゃんが出現。「一緒にパパとママを探して！」",
+    model:"assets/models/kodomo.glb"
+  },
+  {
+    id:2, name:"② 福井城址（御廊下橋・福の井）",
+    lat:36.0651734, lng:136.2205406, radius:35,
+    note:"堀に近く周囲に県庁舎など高層構造物あり。反射によるGPSズレに注意。",
+    arrive:"恐竜：<br>「どうしたの？ 困ってるの？」<br>フクイちゃん：<br>「パパとママを探してるんだ！」<br>恐竜：<br>「それなら、あっちで足あとを見たよ！」",
+    hint:"恐竜：<br>「強い絆が集まる、赤い神社に向かったみたい！」<br>フクイちゃん：<br>「ありがとう！ 行ってみよう！」<br><b>▶ 次の目的地：北庄城址・柴田神社</b>",
+    ar:"福井城址で出会った恐竜が「足あとはあっちだよ！」と教えてくれる。",
+    model:"assets/models/ptera.glb"
+  },
+  {
+    id:3, name:"③ 北庄城址・柴田神社",
+    lat:36.0602703, lng:136.2196588, radius:30,
+    note:"境内は木立に囲まれるが比較的開けた区画。",
+    arrive:"恐竜：<br>「パパとママを探してるの？」<br>フクイちゃん：<br>「うん！ どこにいるのかな？」<br>恐竜：<br>「家族って、大切だよね！」",
+    hint:"恐竜：<br>「『福井が栄えますように』って願う神社があるよ！」<br>フクイちゃん：<br>「そこにも行ってみよう！」<br><b>▶ 次の目的地：佐佳枝廼社</b>",
+    ar:"「家族って、大切だよね」と優しく語りかけてくれる恐竜。",
+    model:"assets/models/rekishi.glb"
+  },
+  {
+    id:4, name:"④ 佐佳枝廼社",
+    lat:36.0644419, lng:136.2183107, radius:30,
+    note:"福井の総鎮守として親しまれる神社。境内は比較的開けており、GPS精度は良好な見込み。",
+    arrive:"フクイちゃん：<br>「パパとママに会えますように！」<br>恐竜：<br>「きっと会えるよ！ もう少し頑張ろう！」",
+    hint:"恐竜：<br>「パパとママ、にぎやかな商店街へ向かったよ！」<br>フクイちゃん：<br>「急いで行ってみよう！」<br><b>▶ 次の目的地：新栄商店街・ガレリア元町</b>",
+    ar:"「きっと会えるよ！」と励ましてくれる恐竜。",
+    model:"assets/models/garden_dino.glb"
+  },
+  {
+    id:5, name:"⑤ 新栄商店街・ガレリア元町",
+    lat:36.0608637, lng:136.2207079, radius:50,
+    note:"アーケード屋根あり。GPS精度が大きく低下する想定区間。要現地キャリブレーション。",
+    arrive:"フクイちゃん：<br>「お店がいっぱいだね！」<br>恐竜：<br>「あっ、パパとママを探してるんだよね？」<br>フクイちゃん：<br>「うん！ どこに行ったの？」<br>恐竜：<br>「駅の近くのハピリンで見かけたよ！」",
+    hint:"フクイちゃん：<br>「やった！ もうすぐ会えるかも！」<br>「ハピリンへ行こう！」<br><b>▶ 次の目的地：ハピリン</b>",
+    ar:"「ハピリンで見かけたよ！」という目撃情報。",
+    model:"assets/models/ticket.glb"
+  },
+  {
+    id:6, name:"⑥ ハピリン",
+    lat:36.0612834, lng:136.2222364, radius:50,
+    note:"多層階の屋内施設。GPSのみでの判定は精度に限界あり。店舗チェックイン等の代替導線を検討。",
+    arrive:"フクイちゃん：<br>「パパとママ、見つかるかな……」<br>恐竜：<br>「あっ、パパとママを知ってるよ！」<br>フクイちゃん：<br>「本当！？」<br>恐竜：<br>「最初の恐竜広場で待っているみたい！」",
+    hint:"フクイちゃん：<br>「急いで戻ろう！」<br>「パパ、ママ、待っててね！」<br><b>▶ ゴール：恐竜広場へ戻ろう！</b>",
+    ar:"「恐竜広場で待っているみたい！」という最後のヒント。",
+    model:"assets/models/dango.glb"
+  }
+];
+const GOAL = {
+  id:"goal",
+  name:"ゴール：恐竜広場（親子の再会）",
+  lat:SPOTS[0].lat, lng:SPOTS[0].lng, radius:25,
+  note:"全6スポットを踏破したら、恐竜広場に戻ってきてね。",
+  arrive:"フクイちゃん：<br>「パパー！ ママー！」<br>お父さん・お母さん：<br>「フクイちゃん！」<br>「会えてよかった！」<br>フクイちゃん：<br>「もう、はぐれないようにするね！」<br>「一緒に探してくれてありがとう！」<br><br>フクイちゃん：<br>「福井には、いろんな場所があるんだね！」<br>「一緒に探してくれて、ありがとう！」<br><br><b>これで、フクイちゃんのまいご探しはおしまい！</b>",
+  hint:"",
+  ar:"親子がギューッと抱き合う感動の再会AR演出。",
+  model:"assets/models/family_hug.glb"
+};
+
+/* =========================================================
+   番外スポット（ボーナス）
+   駅前の6スポット踏破・ゴール条件には含まれない「発見型」の追加スポット。
+   訪れるとおまけのARストーリーが見られるが、スタンプラリーの完了判定
+   （SPOTS.every(...)）には影響しない。
+========================================================= */
+const BONUS_SPOTS = [
+  {
+    id:"bonus-daigaku", name:"番外：福井大学 文京キャンパス",
+    lat:36.0764140398416, lng:136.2131234375102, radius:100,
+    note:"駅前の6スポットから少し離れた番外スポット。正門付近が目印。見つけられたらラッキー！",
+    arrive:"キャンパスの片隅、座布団の上にちょこんと座る小さな恐竜を見つけた。迷子のフクイちゃん一家とは別の、この街に暮らす恐竜の子どものようだ。",
+    hint:"街なかに戻って、残りのスポットもめぐってみよう！",
+    ar:"赤いリボンをつけた子恐竜が、座布団の上でひと休み中。",
+    model:"assets/models/daigaku.glb"
+  },
+  {
+    id:"bonus-sankankaikan", name:"番外：福井県産業会館",
+    lat:36.03684, lng:136.23062, radius:1000,
+    note:"福井市下六条町103番地。敷地・駐車場が広いため半径1kmに設定（※複数の地図サービスの座標を平均した概算値。現地確認・微調整推奨）。",
+    arrive:"大きな建物のまわりをうろうろしていたら、人懐っこい恐竜とばったり出会った。迷子のフクイちゃん一家とは別の、この街のどこかに住んでいる恐竜みたい。",
+    hint:"恐竜：<br>「福井駅前の方に行くと、面白いものが見られるよ！」<br><b>▶ 福井駅前へ戻ろう</b>",
+    ar:"元気いっぱい尻尾を振る恐竜が、見上げるくらい大きな姿でひょっこり現れる。",
+    model:"assets/models/sankan_dino.glb"
+  }
+];
+
+/* =========================================================
+   次のあしあと: イラストマップ上のスポット位置と足あとパス生成
+   （town-map.webp は 792x432。各スポットの位置は画像を目視で
+    読み取った概算値。実際の道なりではなく演出用の曲線。）
+========================================================= */
+/* 動作確認用: URLに ?debug=1 を付けると、GPS/到達判定に関係なく
+   全スポット（番外・ゴール含む）のストーリーをその場で開けるようになる。
+   通常の利用者には見えない（パラメータを付けない限り何も変わらない）。 */
+const DEBUG_MODE = new URLSearchParams(location.search).get("debug") === "1";
+
+const MAP_W = 792, MAP_H = 432;
+const SPOT_MAP_POS = {
+  1: {x:67, y:51},  // 恐竜広場
+  2: {x:57, y:9},   // 福井城址
+  3: {x:50, y:75},  // 北庄城址・柴田神社
+  4: {x:24, y:22},  // 佐佳枝廼社
+  5: {x:34, y:57},  // 新栄商店街・ガレリア元町
+  6: {x:63, y:66},  // ハピリン
+  goal: {x:67, y:51}, // 恐竜広場（ゴール＝スタートと同じ位置）
+  // 福井県産業会館は町あるきマップの範囲外（南に約2.9km）にあるため、
+  // マップの外から入ってくる位置として南南東の縁の外側に仮置きする。
+  "bonus-sankankaikan": {x:85, y:111}
+};
+// 産業会館→福井駅前は町あるきマップの範囲外にあるため、この区間だけ専用の
+// 実写ルート画像（assets/sankan_route_map.png, 530x640, ユーザー提供のGoogle
+// マップ経路スクショそのもの）を背景に使う。ワープ変換はせず、画像自身の
+// 座標系（%表記）でそのまま足あと／ピンを置く。先頭=産業会館、末尾=福井駅前。
+const SANKAN_ROUTE_IMG = {w:530, h:640};
+const REAL_ROUTE_SANKAN = [
+  {x:68.87, y:93.12},{x:72.08, y:86.72},{x:74.34, y:80.47},{x:75.47, y:74.22},
+  {x:75.09, y:67.97},{x:73.58, y:61.72},{x:72.08, y:55.47},{x:69.81, y:49.22},
+  {x:66.98, y:42.97},{x:63.21, y:38.28},{x:57.55, y:35.16},{x:52.45, y:33.59},
+  {x:50.57, y:30.47},{x:51.89, y:25.78},{x:55.09, y:21.88},{x:56.23, y:17.97},
+  {x:52.83, y:14.84},{x:50.94, y:10.94},{x:50.57, y:5.47}
+];
+function getNextSpot(spot){
+  if(!spot) return null;
+  if(spot.id === "bonus-sankankaikan") return SPOTS[0]; // 産業会館→福井駅前(恐竜広場)へ
+  if(typeof spot.id !== "number") return null; // ゴール・他の番外スポットには「次」がない
+  const idx = SPOTS.findIndex(s=>s.id===spot.id);
+  if(idx===-1) return null;
+  return SPOTS[idx+1] || GOAL;
+}
+// 2点間に、歩いた跡っぽい緩いカーブを描いて足あとの通過点列を作る
+function buildFootpath(aPct, bPct, steps=12){
+  const ax=aPct.x/100*MAP_W, ay=aPct.y/100*MAP_H;
+  const bx=bPct.x/100*MAP_W, by=bPct.y/100*MAP_H;
+  const dx=bx-ax, dy=by-ay;
+  const len=Math.hypot(dx,dy)||1;
+  const nx=-dy/len, ny=dx/len;
+  const bendSign=(Math.round(ax+ay)%2===0)?1:-1;
+  const bendAmt=Math.min(len*0.16, 55);
+  const raw=[];
+  for(let i=0;i<=steps;i++){
+    const t=i/steps;
+    const bend=Math.sin(t*Math.PI)*bendAmt*bendSign;
+    raw.push({x:ax+dx*t+nx*bend, y:ay+dy*t+ny*bend});
+  }
+  const out=[];
+  for(let i=0;i<raw.length;i++){
+    const cur=raw[i], nextP=raw[i+1]||raw[i], prevP=raw[i-1]||raw[i];
+    const hx=nextP.x-prevP.x, hy=nextP.y-prevP.y;
+    const ang=Math.atan2(hy,hx)*180/Math.PI+90;
+    const side=(i%2===0)?1:-1;
+    const ox=-hy, oy=hx;
+    const L=Math.hypot(ox,oy)||1;
+    const stagger=4;
+    out.push({
+      x:(cur.x+ox/L*stagger*side)/MAP_W*100,
+      y:(cur.y+oy/L*stagger*side)/MAP_H*100,
+      r:ang
+    });
+  }
+  return out;
+}
+// 2点を程よい余白で囲む矩形を、マップカードの縦横比(354:405)に合わせて計算する
+function computeMapCrop(aPct, bPct){
+  const ax=aPct.x/100*MAP_W, ay=aPct.y/100*MAP_H;
+  const bx=bPct.x/100*MAP_W, by=bPct.y/100*MAP_H;
+  const minX=Math.min(ax,bx), maxX=Math.max(ax,bx);
+  const minY=Math.min(ay,by), maxY=Math.max(ay,by);
+  const padX=Math.max((maxX-minX)*0.35, 55);
+  const padY=Math.max((maxY-minY)*0.35, 55);
+  let x0=minX-padX, x1=maxX+padX, y0=minY-padY, y1=maxY+padY;
+  const ASPECT=354/405;
+  let w=x1-x0, h=y1-y0;
+  if(w/h>ASPECT){ const nh=w/ASPECT; y0-=(nh-h)/2; y1+=(nh-h)/2; h=nh; }
+  else{ const nw=h*ASPECT; x0-=(nw-w)/2; x1+=(nw-w)/2; w=nw; }
+  if(x0<0){ x1-=x0; x0=0; }
+  if(x1>MAP_W){ x0-=(x1-MAP_W); x1=MAP_W; }
+  if(y0<0){ y1-=y0; y0=0; }
+  if(y1>MAP_H){ y0-=(y1-MAP_H); y1=MAP_H; }
+  x0=Math.max(0,x0); y0=Math.max(0,y0);
+  w=Math.min(MAP_W-x0, x1-x0); h=Math.min(MAP_H-y0, y1-y0);
+  return {x:x0, y:y0, w, h};
+}
+
+/* =========================================================
+   滞在ログ（運営者だけが見られる裏側の計測。画面には一切表示しない）
+   スポットに到着するたびに「匿名セッションID・スポット名・時刻」だけを
+   外部エンドポイント（Google Apps Script + スプレッドシート想定）へ
+   静かに送信する。UIやトースト通知は一切出さず、失敗しても無視する。
+   運用手順は analytics/apps-script.gs を参照。
+   LOG_ENDPOINT が空文字のうちは何もしない（未設定でもアプリは壊れない）。
+========================================================= */
+const LOG_ENDPOINT = "https://script.google.com/macros/s/AKfycbydUYsng2uRSZpzlGiU0TzpDh4-PXR7UxoYVGjgR-xj_R0xmJe9fsmdXqesosHdWanExw/exec";
+const LOG_SESSION_KEY = "dino_map_session_id";
+
+function getSessionId(){
+  let id = localStorage.getItem(LOG_SESSION_KEY);
+  if(!id){
+    id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now() + "-" + Math.random().toString(16).slice(2));
+    localStorage.setItem(LOG_SESSION_KEY, id);
+  }
+  return id;
+}
+
+function logVisit(event, spot){
+  if(!LOG_ENDPOINT) return;
+  const payload = {
+    event,        // "start" | "arrive" | "goal"
+    spotId: spot ? spot.id : null,
+    spotName: spot ? spot.name : null,
+    timestamp: new Date().toISOString(),
+    sessionId: getSessionId(),
+  };
+  try{
+    // Content-Typeをtext/plainにすることで、Apps Script側のCORSプリフライト
+    // エラーを避けつつJSON文字列をそのまま送る（Apps Script側のよくある回避策）。
+    const blob = new Blob([JSON.stringify(payload)], {type:"text/plain"});
+    if(navigator.sendBeacon){
+      navigator.sendBeacon(LOG_ENDPOINT, blob);
+    }else{
+      fetch(LOG_ENDPOINT, {method:"POST", mode:"no-cors", body: blob}).catch(()=>{});
+    }
+  }catch(e){
+    // 計測の失敗でユーザー体験を損なわないよう、ここで握りつぶす
+  }
+}
+
+function sendToLog(payload){
+  if(!LOG_ENDPOINT) return;
+  try{
+    const blob = new Blob([JSON.stringify(payload)], {type:"text/plain"});
+    if(navigator.sendBeacon){
+      navigator.sendBeacon(LOG_ENDPOINT, blob);
+    }else{
+      fetch(LOG_ENDPOINT, {method:"POST", mode:"no-cors", body: blob}).catch(()=>{});
+    }
+  }catch(e){
+    // 計測の失敗でユーザー体験を損なわないよう、ここで握りつぶす
+  }
+}
+
+/* =========================================================
+   ARに関する研究用テレメトリ（既存のsendToLog経由でApps Scriptへ）
+   AR方式の判定結果、モデル読み込み失敗、撮影/保存の成否などを送る。
+   写真そのもの（Base64/Blob）は絶対に含めない。
+========================================================= */
+const APP_VERSION = "1.1.0";
+function deviceClass(){
+  // 分析用の大まかな分類のみに使う。AR方式の分岐条件には絶対に使わない
+  // （AR方式の判定は必ず navigator.xr の実機能検出で行う）。
+  const ua = navigator.userAgent || "";
+  if(/iphone|ipad|ipod/i.test(ua)) return "ios";
+  if(/android/i.test(ua)) return "android";
+  return "other";
+}
+function logTelemetry(fields){
+  sendToLog(Object.assign({
+    type: "ar_telemetry",
+    timestamp: new Date().toISOString(),
+    sessionId: getSessionId(),
+    appVersion: APP_VERSION,
+    device: deviceClass(),
+    ua: navigator.userAgent || "",
+  }, fields));
+}
+
+/* =========================================================
+   アンケート（回遊行動アンケート：アプリ使用前 / 使用後）
+   回答は匿名セッションIDとともにLOG_ENDPOINTへ
+   type:"survey_pre" / "survey_post" として送信される。
+   スプレッドシート側では別シート(survey_pre / survey_post)に
+   自動で追記される（analytics/apps-script.gs 参照）。
+========================================================= */
+const COMMON_SPOT_OPTIONS = ["恐竜広場","柴田神社","福井城址","佐佳枝廼社","新栄商店街","ハピリン","福井大学（番外）"];
+const DURATION_OPTIONS = ["30分未満","30分〜1時間","1〜2時間","2〜3時間","3時間以上"];
+
+const SURVEY_PRE = [
+  {id:"age", label:"① 年齢", type:"radio", options:["19歳以下","20〜29歳","30〜39歳","40〜49歳","50〜59歳","60歳以上"]},
+  {id:"residence", label:"② 居住地", type:"radio", options:["福井県内","北陸(石川・富山)","その他国内","海外"]},
+  {id:"stationPurpose", label:"③ 福井駅の利用目的(複数選択可)", type:"checkbox", options:["観光","飲食","買い物","乗り換え","仕事","その他"]},
+  {id:"plannedDuration", label:"④ 福井駅周辺での滞在予定時間", type:"radio", options:DURATION_OPTIONS},
+  {id:"plannedSpots", label:"⑤ 福井駅周辺で訪れる予定の場所(複数選択可)", type:"checkbox", options:COMMON_SPOT_OPTIONS, other:true},
+  {id:"walkIntent", label:"⑥ 福井駅周辺を歩いて回る予定がある", type:"scale"},
+  {id:"detourIntent", label:"⑦ 予定している場所以外にも立ち寄ってみたい", type:"scale"},
+];
+
+const SURVEY_POST = [
+  {id:"unplannedVisit", label:"⑧ アプリを使用して、予定していなかった場所に立ち寄った", type:"scale"},
+  {id:"behaviorChange", label:"⑨ アプリを使用したことで、普段なら行かなかった場所に行った", type:"scale"},
+  {id:"walkIntentAfter", label:"⑩ アプリを使用したことで、福井駅周辺をより歩いてみたいと思った", type:"scale"},
+  {id:"stayLonger", label:"⑪ アプリを使用したことで、福井駅周辺での滞在時間が伸びたと感じる", type:"scale"},
+  {id:"experienceChange", label:"⑫ アプリを使用したことで、福井駅周辺での過ごし方が変わった", type:"scale"},
+  {id:"satisfaction", label:"⑬ 今回のアプリを使用した体験に満足している", type:"scale"},
+  {id:"revisitIntent", label:"⑭ アプリを使用したことで、福井駅周辺をまた訪れたいと思った", type:"scale"},
+  {id:"futureUseIntent", label:"⑮ 今後、同じようなアプリがあれば利用したい", type:"scale"},
+  {id:"actualSpots", label:"⑯ 今回実際に立ち寄った場所(複数選択可)", type:"checkbox", options:COMMON_SPOT_OPTIONS, other:true},
+  {id:"actualDuration", label:"⑰ 実際の滞在時間", type:"radio", options:DURATION_OPTIONS},
+  {id:"freeComment", label:"⑱ アプリを使ってよかった点・改善してほしい点", type:"textarea"},
+];
+
+function renderSurveyQuestion(q){
+  const wrap = document.createElement("div");
+  wrap.className = "survey-q";
+  const title = document.createElement("div");
+  title.className = "survey-q-label";
+  title.textContent = q.label;
+  wrap.appendChild(title);
+
+  if(q.type === "radio" || q.type === "checkbox"){
+    const opts = document.createElement("div");
+    opts.className = "survey-options";
+    q.options.forEach(opt=>{
+      const lbl = document.createElement("label");
+      lbl.className = "survey-option";
+      const input = document.createElement("input");
+      input.type = q.type;
+      input.name = q.id;
+      input.value = opt;
+      lbl.appendChild(input);
+      lbl.appendChild(document.createTextNode(opt));
+      opts.appendChild(lbl);
+    });
+    wrap.appendChild(opts);
+    if(q.other){
+      const otherInput = document.createElement("input");
+      otherInput.type = "text";
+      otherInput.className = "survey-other-input";
+      otherInput.name = q.id + "Other";
+      otherInput.placeholder = "その他(自由記述)";
+      wrap.appendChild(otherInput);
+    }
+  }else if(q.type === "scale"){
+    const scale = document.createElement("div");
+    scale.className = "survey-scale";
+    for(let i=1;i<=5;i++){
+      const lbl = document.createElement("label");
+      lbl.className = "survey-scale-opt";
+      const input = document.createElement("input");
+      input.type = "radio";
+      input.name = q.id;
+      input.value = String(i);
+      const span = document.createElement("span");
+      span.textContent = i;
+      lbl.appendChild(input);
+      lbl.appendChild(span);
+      scale.appendChild(lbl);
+    }
+    const capt = document.createElement("div");
+    capt.className = "survey-scale-caption";
+    capt.innerHTML = "<span>そう思わない</span><span>とても思う</span>";
+    wrap.appendChild(scale);
+    wrap.appendChild(capt);
+  }else if(q.type === "textarea"){
+    const ta = document.createElement("textarea");
+    ta.className = "survey-textarea";
+    ta.name = q.id;
+    ta.rows = 3;
+    wrap.appendChild(ta);
+  }
+  return wrap;
+}
+
+function buildSurveyForm(formEl, questions){
+  formEl.innerHTML = "";
+  questions.forEach(q => formEl.appendChild(renderSurveyQuestion(q)));
+}
+
+function collectSurveyAnswers(formEl, questions){
+  const answers = {};
+  questions.forEach(q=>{
+    if(q.type === "radio" || q.type === "scale"){
+      const checked = formEl.querySelector(`input[name="${q.id}"]:checked`);
+      answers[q.id] = checked ? checked.value : "";
+    }else if(q.type === "checkbox"){
+      const checked = formEl.querySelectorAll(`input[name="${q.id}"]:checked`);
+      answers[q.id] = Array.from(checked).map(c=>c.value);
+      if(q.other){
+        const otherEl = formEl.querySelector(`[name="${q.id}Other"]`);
+        const otherVal = otherEl ? otherEl.value.trim() : "";
+        if(otherVal) answers[q.id + "Other"] = otherVal;
+      }
+    }else if(q.type === "textarea"){
+      const el = formEl.querySelector(`[name="${q.id}"]`);
+      answers[q.id] = el ? el.value.trim() : "";
+    }
+  });
+  return answers;
+}
+
+const preSurveyForm = document.getElementById("survey-pre-form");
+buildSurveyForm(preSurveyForm, SURVEY_PRE);
+const postSurveyForm = document.getElementById("survey-post-form");
+buildSurveyForm(postSurveyForm, SURVEY_POST);
+
+function openPreSurvey(){ document.getElementById("survey-pre-modal").classList.add("open"); }
+function closePreSurvey(){ document.getElementById("survey-pre-modal").classList.remove("open"); }
+
+function finishPreSurvey(){
+  progress.preSurveyDone = true;
+  saveProgress(progress);
+  sendToLog({
+    type: "survey_pre",
+    sessionId: getSessionId(),
+    timestamp: new Date().toISOString(),
+    answers: collectSurveyAnswers(preSurveyForm, SURVEY_PRE),
+  });
+  closePreSurvey();
+  beginAdventure();
+}
+document.getElementById("survey-pre-submit").addEventListener("click", finishPreSurvey);
+document.getElementById("survey-pre-close").addEventListener("click", closePreSurvey);
+
+function anyModalOpen(){ return !!document.querySelector(".modal-back.open"); }
+function openPostSurvey(){ document.getElementById("survey-post-modal").classList.add("open"); }
+function closePostSurvey(){ document.getElementById("survey-post-modal").classList.remove("open"); }
+document.getElementById("survey-post-close").addEventListener("click", closePostSurvey);
+document.getElementById("survey-post-submit").addEventListener("click", ()=>{
+  progress.postSurveyDone = true;
+  saveProgress(progress);
+  sendToLog({
+    type: "survey_post",
+    sessionId: getSessionId(),
+    timestamp: new Date().toISOString(),
+    answers: collectSurveyAnswers(postSurveyForm, SURVEY_POST),
+  });
+  closePostSurvey();
+  renderSpotList();
+  showToast("ご回答ありがとうございました！");
+  openStory(GOAL);
+});
+
+/* =========================================================
+   状態管理（localStorage永続化）
+========================================================= */
+const STORAGE_KEY = "dino_map_progress_v1";
+const ALBUM_KEY = "dino_map_album_v1"; // 旧バージョン（localStorage/Base64）のキー。移行元としてのみ使う。
+
+function loadProgress(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {arrived:{}, started:false};
+  }catch(e){ return {arrived:{}, started:false}; }
+}
+function saveProgress(p){ localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); }
+
+/* =========================================================
+   フォトダイアリー（IndexedDBにBlobで保存）
+   以前はlocalStorageにBase64文字列で保存していたが、容量制限
+   （多くの端末で5〜10MB程度）にすぐ達してしまうため、より大きな容量を
+   扱えるIndexedDBにBlobとして保存する方式に変更した。
+   既存ユーザーの端末に残っている旧データ（localStorageのBase64配列）は
+   起動時に一度だけIndexedDBへ移行し、移行後はlocalStorage側を消す。
+========================================================= */
+const IDB_NAME = "dino_map_db";
+const IDB_STORE = "photos";
+let idbPromise = null;
+function openIdb(){
+  if(idbPromise) return idbPromise;
+  idbPromise = new Promise((resolve, reject)=>{
+    if(!("indexedDB" in window)){ reject(new Error("indexeddb_unsupported")); return; }
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = ()=>{
+      const db = req.result;
+      if(!db.objectStoreNames.contains(IDB_STORE)){
+        db.createObjectStore(IDB_STORE, {keyPath:"id"});
+      }
+    };
+    req.onsuccess = ()=> resolve(req.result);
+    req.onerror = ()=> reject(req.error);
+  });
+  return idbPromise;
+}
+function idbAddPhoto(record){
+  return openIdb().then(db => new Promise((resolve, reject)=>{
+    const tx = db.transaction(IDB_STORE, "readwrite");
+    tx.objectStore(IDB_STORE).put(record);
+    tx.oncomplete = ()=> resolve(true);
+    tx.onerror = ()=> reject(tx.error);
+  }));
+}
+function idbGetAllPhotos(){
+  return openIdb().then(db => new Promise((resolve, reject)=>{
+    const tx = db.transaction(IDB_STORE, "readonly");
+    const req = tx.objectStore(IDB_STORE).getAll();
+    req.onsuccess = ()=> resolve(req.result || []);
+    req.onerror = ()=> reject(req.error);
+  }));
+}
+async function migrateAlbumFromLocalStorage(){
+  const raw = localStorage.getItem(ALBUM_KEY);
+  if(!raw) return;
+  try{
+    const oldAlbum = JSON.parse(raw);
+    for(const item of oldAlbum){
+      try{
+        const res = await fetch(item.img);
+        const blob = await res.blob();
+        await idbAddPhoto({id: item.id, spot: item.spot, blob});
+      }catch(e){
+        // 1件だけ壊れていても他の写真の移行は続ける
+      }
+    }
+  }catch(e){
+    // 壊れた旧データはそのまま破棄する
+  }
+  localStorage.removeItem(ALBUM_KEY);
+}
+
+let progress = loadProgress();
+let album = []; // {id, spot, blob, url} の配列。起動時に initAlbum() で読み込む
+let currentPos = null;
+let watchId = null;
+let activeSpot = null;
+let postSurveyAutoOpened = false; // 事後アンケートをこのセッション中に自動表示済みか
+
+function albumObjectUrl(item){
+  if(!item.url) item.url = URL.createObjectURL(item.blob);
+  return item.url;
+}
+async function addPhotoToAlbum(spotName, blob){
+  const record = {id: Date.now(), spot: spotName, blob};
+  await idbAddPhoto(record); // 失敗（保存容量超過など）した場合はここで例外を投げる
+  album.unshift({id: record.id, spot: record.spot, blob, url: null});
+  renderAlbum();
+}
+async function initAlbum(){
+  try{
+    await migrateAlbumFromLocalStorage();
+  }catch(e){ /* 移行に失敗しても新規保存は続けられるので無視する */ }
+  try{
+    const records = await idbGetAllPhotos();
+    album = records.sort((a,b)=> b.id - a.id).map(r => ({id:r.id, spot:r.spot, blob:r.blob, url:null}));
+  }catch(e){
+    album = []; // IndexedDBが使えない端末では、今回のセッション中はダイアリーが空になる
+  }
+  renderAlbum();
+}
+
+/* =========================================================
+   距離計算（Haversine公式）
+========================================================= */
+function distanceMeters(lat1, lng1, lat2, lng2){
+  const R = 6371000;
+  const toRad = d => d * Math.PI/180;
+  const dLat = toRad(lat2-lat1);
+  const dLng = toRad(lng2-lng1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2;
+  return R * 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+/* =========================================================
+   GPS 監視
+========================================================= */
+function startGPS(){
+  if(!("geolocation" in navigator)){
+    setGpsStatus(false, "この端末では位置情報が使えません");
+    return;
+  }
+  setGpsStatus(false, "位置情報を取得中…");
+  watchId = navigator.geolocation.watchPosition(
+    pos => {
+      currentPos = {lat:pos.coords.latitude, lng:pos.coords.longitude, acc:pos.coords.accuracy};
+      setGpsStatus(true, `位置情報OK（精度 約${Math.round(pos.coords.accuracy)}m）`);
+      renderSpotList();
+    },
+    err => {
+      setGpsStatus(false, "位置情報の取得に失敗: " + err.message);
+    },
+    {enableHighAccuracy:true, maximumAge:5000, timeout:15000}
+  );
+}
+function setGpsStatus(ok, text){
+  document.getElementById("dot-gps").className = "dot " + (ok ? "ok" : "warn");
+  document.getElementById("txt-gps").textContent = text;
+}
+
+/* =========================================================
+   画面遷移
+========================================================= */
+function showScreen(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  document.querySelectorAll(".tab").forEach(t=>{
+    t.classList.toggle("active", t.dataset.screen === id);
+  });
+  if(id === "screen-album") renderAlbum();
+}
+document.querySelectorAll(".tab").forEach(t=>{
+  t.addEventListener("click", ()=> showScreen(t.dataset.screen));
+});
+
+function beginAdventure(){
+  progress.started = true; saveProgress(progress);
+  logVisit("start", SPOTS[0]);
+  startGPS();
+  showScreen("screen-map");
+  showToast("位置情報の使用を開始しました。スポットに近づくと自動で反応します");
+}
+document.getElementById("btn-start").addEventListener("click", ()=>{
+  if(!progress.preSurveyDone){
+    openPreSurvey();
+  }else{
+    beginAdventure();
+  }
+});
+document.getElementById("btn-preview").addEventListener("click", ()=>{
+  // プレビュー用: 位置情報を使わず画面だけ確認したい場合（GPSは起動しない）
+  showScreen("screen-map");
+  showToast("プレビューモード：位置情報はオフのままです");
+});
+
+/* =========================================================
+   足あとトレイル描画
+========================================================= */
+function renderTrail(){
+  const trail = document.getElementById("trail");
+  trail.innerHTML = "";
+  SPOTS.forEach((s, i)=>{
+    const done = !!progress.arrived[s.id];
+    const isCurrent = !done && isCurrentTarget(s);
+    const div = document.createElement("div");
+    div.className = "trail-step" + (done ? " done" : "") + (isCurrent ? " current" : "");
+    div.innerHTML = `<div class="paw">🐾</div><div class="num">${i+1}</div>`;
+    trail.appendChild(div);
+  });
+}
+function isCurrentTarget(spot){
+  const firstUnarrived = SPOTS.find(s => !progress.arrived[s.id]);
+  return firstUnarrived && firstUnarrived.id === spot.id;
+}
+
+/* =========================================================
+   スポット一覧描画
+========================================================= */
+/* 通常スポットと番外スポットで共通のカードを組み立てる。
+   状態(到達ずみ/ここにいる/ロック中)に応じて表示を変え、
+   到達判定そのものは今までと同じロジック（副作用として progress を更新）。 */
+function buildSpotCard(spot, opts){
+  const isBonus = !!(opts && opts.isBonus);
+  const arrived = !!progress.arrived[spot.id];
+  let dist = null;
+  if(currentPos){
+    dist = distanceMeters(currentPos.lat, currentPos.lng, spot.lat, spot.lng);
+  }
+  const here = !arrived && dist !== null && dist <= spot.radius;
+  if(here && !arrived){
+    progress.arrived[spot.id] = true;
+    saveProgress(progress);
+    logVisit("arrive", spot);
+    showToast(spot.name + (isBonus ? " を発見しました！" : " に到着しました！"));
+  }
+
+  const card = document.createElement("div");
+  card.className = "spot-card " + (arrived ? "arrived" : (here ? "here" : "locked"));
+  const openAttr = isBonus ? `data-open-bonus="${spot.id}"` : `data-open="${spot.id}"`;
+  const numLabel = arrived ? "✓" : (isBonus ? "🎓" : spot.id);
+
+  let bodyHtml;
+  if(arrived){
+    bodyHtml = `
+      <div class="spot-top">
+        <p class="spot-name">${spot.name}</p>
+        <span class="status-chip done">到達ずみ</span>
+      </div>
+      <button class="spot-btn ghost" ${openAttr}>ストーリーを見る</button>`;
+  }else if(here){
+    const pct = (dist !== null && dist > 0) ? Math.max(0, Math.min(1, spot.radius / dist)) : 1;
+    bodyHtml = `
+      <div class="spot-top">
+        <p class="spot-name">${spot.name}</p>
+        <span class="status-chip here">${isBonus ? "発見！" : "ここにいる！"}</span>
+      </div>
+      <div class="dist-row">
+        <span class="dist-ring" style="--pct:${Math.round(pct*360)}deg"></span>
+        <span class="dist-text">現在地から約${dist !== null ? Math.round(dist) : "?"}m</span>
+      </div>
+      <div class="spot-hint">${spot.note}</div>
+      <button class="spot-btn" ${openAttr}>ストーリーを見る</button>`;
+  }else{
+    bodyHtml = `
+      <div class="spot-top">
+        <p class="spot-name">${spot.name}</p>
+        <span class="status-chip locked">${dist !== null ? "約" + Math.round(dist) + "m" : "位置情報待ち"}</span>
+      </div>
+      ${DEBUG_MODE ? `<button class="spot-btn ghost" ${openAttr}>🐞 ストーリーを見る（デバッグ）</button>` : ""}`;
+  }
+  card.innerHTML = `<div class="spot-num">${numLabel}</div><div class="spot-body">${bodyHtml}</div>`;
+  return card;
+}
+
+function renderSpotList(){
+  renderTrail();
+  const list = document.getElementById("spot-list");
+  list.innerHTML = "";
+  SPOTS.forEach(spot=> list.appendChild(buildSpotCard(spot)));
+
+  // ゴールカード（全6スポット踏破後、恐竜広場に戻ってきたら解放）
+  const allArrived = SPOTS.every(s => !!progress.arrived[s.id]);
+  const doneCount = SPOTS.filter(s => !!progress.arrived[s.id]).length;
+  let goalDist = null;
+  if(currentPos){
+    goalDist = distanceMeters(currentPos.lat, currentPos.lng, GOAL.lat, GOAL.lng);
+  }
+  const goalHere = allArrived && goalDist !== null && goalDist <= GOAL.radius;
+  if(goalHere && !progress.goalLogged){
+    progress.goalLogged = true;
+    saveProgress(progress);
+    logVisit("goal", GOAL);
+  }
+  const goalCard = document.createElement("div");
+  goalCard.className = "goal-card" + (goalHere ? " ready" : "");
+  let goalBody;
+  if(!allArrived){
+    const remain = SPOTS.length - doneCount;
+    const pct = Math.round((doneCount / SPOTS.length) * 100);
+    goalBody = `
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div class="remain">残り${remain}スポットを踏破すると解放されます。</div>
+      ${DEBUG_MODE ? `<button class="spot-btn ghost" id="btn-open-goal-debug">🐞 ストーリーを見る（デバッグ）</button>` : ""}`;
+  }else if(!goalHere){
+    goalBody = `
+      <div class="progress-bar"><div class="progress-fill" style="width:100%"></div></div>
+      <div class="remain">${goalDist!==null ? "恐竜広場まで約"+Math.round(goalDist)+"m" : "位置情報待ち"}</div>
+      ${DEBUG_MODE ? `<button class="spot-btn ghost" id="btn-open-goal-debug">🐞 ストーリーを見る（デバッグ）</button>` : ""}`;
+  }else{
+    // アンケートに入る前の離脱を減らすため、「答えてから見る」と一度誘導した上で
+    // タップを要求するのではなく、恐竜広場に戻ってきた瞬間に自動で開く。
+    // （✕で閉じた場合の再開だけ、下のボタンから手動で開けるようにする。）
+    if(!progress.postSurveyDone && !postSurveyAutoOpened && !anyModalOpen()){
+      postSurveyAutoOpened = true;
+      openPostSurvey();
+    }
+    goalBody = progress.postSurveyDone
+      ? `
+      <p class="goal-note">${GOAL.note}</p>
+      <button class="spot-btn" id="btn-open-goal">親子の再会を見る</button>`
+      : `
+      <p class="goal-note">${GOAL.note}</p>
+      <button class="spot-btn" id="btn-open-goal">アンケートに戻る</button>`;
+  }
+  goalCard.innerHTML = `<div class="goal-tag">GOAL</div><div class="goal-name">${GOAL.name}</div>${goalBody}`;
+  list.appendChild(goalCard);
+
+  // 番外スポット（任意・スタンプラリーの完了判定には含まれない）
+  if(BONUS_SPOTS.length){
+    const bonusLabel = document.createElement("div");
+    bonusLabel.className = "section-label";
+    bonusLabel.textContent = "🎓 番外スポット（任意）";
+    list.appendChild(bonusLabel);
+  }
+  BONUS_SPOTS.forEach(spot=> list.appendChild(buildSpotCard(spot, {isBonus:true})));
+
+  list.querySelectorAll("[data-open]").forEach(btn=>{
+    btn.addEventListener("click", ()=> openStory(SPOTS.find(s=>s.id===parseInt(btn.dataset.open))));
+  });
+  list.querySelectorAll("[data-open-bonus]").forEach(btn=>{
+    btn.addEventListener("click", ()=> openStory(BONUS_SPOTS.find(s=>s.id===btn.dataset.openBonus)));
+  });
+  const goalDebugBtn = document.getElementById("btn-open-goal-debug");
+  if(goalDebugBtn) goalDebugBtn.addEventListener("click", ()=> openStory(GOAL));
+  const goalBtn = document.getElementById("btn-open-goal");
+  if(goalBtn){
+    goalBtn.addEventListener("click", ()=>{
+      if(progress.postSurveyDone){
+        openStory(GOAL);
+      }else{
+        openPostSurvey();
+      }
+    });
+  }
+}
+
+/* 到着後にもう一度描画し直せるよう定期チェック */
+setInterval(()=>{ if(currentPos) renderSpotList(); }, 4000);
+
+/* =========================================================
+   ストーリーモーダル
+========================================================= */
+function openStory(spot){
+  activeSpot = spot;
+  document.getElementById("story-title").textContent = spot.name;
+  document.getElementById("story-body").innerHTML = `<p>${spot.arrive}</p>`;
+  document.getElementById("story-ar-btn").textContent = spot.id === "goal" ? "感動の再会をARで見る" : "ARでフクイちゃんに会う";
+  document.getElementById("story-modal").classList.add("open");
+}
+document.getElementById("story-close").addEventListener("click", ()=>{
+  document.getElementById("story-modal").classList.remove("open");
+});
+document.getElementById("story-ar-btn").addEventListener("click", ()=>{
+  document.getElementById("story-modal").classList.remove("open");
+  openAR(activeSpot);
+});
+
+/* =========================================================
+   AR画面
+   対応端末ではWebXR（immersive-ar）によるヒットテストで実空間に
+   モデルを設置する「本物の位置合わせAR」を、非対応端末では従来の
+   カメラ合成＋ジャイロ/ドラッグ表示にフォールバックする。
+   AR方式の判定は必ず navigator.xr の実機能検出（AR3D.detectARMode）で行い、
+   OS名などでは絶対に分岐しない。
+   モデル読み込み・レンダリングは window.AR3D（別途 <script type="module">
+   で定義）に委譲。
+========================================================= */
+let arStream = null;
+let currentArMode = null;
+
+const AR_CAPTION_DRAG = "実写カメラの上に3Dモデルをリアルタイム合成表示しています（three.js使用）。指で画面をドラッグすると、モデルを回転させて色々な角度から見られます。位置トラッキングは行っていません。";
+const AR_CAPTION_MOTION = "恐竜はその場にとどまります。スマホを動かして、あたりを見回して探してみてね。（位置トラッキングは行っていません）";
+const AR_CAPTION_WEBXR = "画面に映る床や地面にカメラを向け、タップすると恐竜がその場所に設置されます。近づいたり離れたり、横から覗き込んだりして観察してみてね。";
+
+function resetArUi(){
+  document.getElementById("ar-enable-motion").style.display = "none";
+  document.getElementById("ar-place-btn").style.display = "none";
+  document.getElementById("ar-reticle-hint").style.display = "none";
+  document.getElementById("ar-offscreen-arrow").style.display = "none";
+  document.getElementById("ar-video").style.display = "";
+}
+
+async function openAR(spot){
+  document.getElementById("ar-title").textContent = spot.name;
+  document.getElementById("ar-hint").textContent = spot.ar;
+  document.getElementById("ar-modal").classList.add("open");
+  resetArUi();
+
+  if(!window.AR3D) return;
+  const mode = await window.AR3D.detectARMode();
+  logTelemetry({event:"ar_mode_selected", arMode: mode, modelPath: spot.model, spotId: spot.id});
+
+  if(mode === "webxr"){
+    currentArMode = "webxr";
+    document.getElementById("ar-caption").textContent = AR_CAPTION_WEBXR;
+    document.getElementById("ar-video").style.display = "none";
+    const canvas = document.getElementById("ar-gl");
+    try{
+      await window.AR3D.openXR(canvas, spot.model, document.getElementById("ar-loading"), {
+        reticleHint: document.getElementById("ar-reticle-hint"),
+        offscreenArrow: document.getElementById("ar-offscreen-arrow"),
+        placeBtn: document.getElementById("ar-place-btn"),
+        overlayRoot: document.getElementById("ar-wrap"),
+      }, ()=>{
+        // WebXRセッションが端末側の操作やエラーで終了した場合の後始末
+        closeAR();
+      });
+      return;
+    }catch(err){
+      console.error("WebXR open error", err);
+      logTelemetry({event:"ar_load_failed", arMode:"webxr", modelPath: spot.model, detail: String(err && err.message || err)});
+      resetArUi();
+      // WebXRが使えなかった場合は、フォールバック方式で継続する
+    }
+  }
+
+  currentArMode = "fallback";
+  document.getElementById("ar-caption").textContent = AR_CAPTION_DRAG;
+  openFallbackAR(spot);
+}
+
+function openFallbackAR(spot){
+  const video = document.getElementById("ar-video");
+  const canvas = document.getElementById("ar-gl");
+  const motionBtn = document.getElementById("ar-enable-motion");
+
+  navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}, audio:false})
+    .then(stream=>{
+      arStream = stream;
+      video.srcObject = stream;
+    })
+    .catch(err=>{
+      document.getElementById("ar-hint").textContent = "カメラを利用できません（" + err.message + "）。実機カメラで動作します。";
+    });
+
+  window.AR3D.openFallback(canvas, [spot.model], document.getElementById("ar-loading"), {center: spot.id === "goal"})
+    .then(()=>{
+      if(!window.AR3D.isOrientationSupported()) return;
+      if(window.AR3D.needsExplicitPermission()){
+        // iOSはユーザーの明示的なタップ操作からしか許可要求できないため、ボタンを出す
+        motionBtn.style.display = "block";
+      }else{
+        // Androidなど、許可ダイアログ不要な端末は自動で有効化
+        window.AR3D.enableOrientation().then(ok=>{
+          if(ok) document.getElementById("ar-caption").textContent = AR_CAPTION_MOTION;
+        });
+      }
+    })
+    .catch(err=>{
+      logTelemetry({event:"ar_load_failed", arMode:"fallback", modelPath: spot.model, detail: String(err && err.message || err)});
+    });
+}
+
+document.getElementById("ar-enable-motion").addEventListener("click", async ()=>{
+  if(!window.AR3D) return;
+  const ok = await window.AR3D.enableOrientation();
+  const motionBtn = document.getElementById("ar-enable-motion");
+  if(ok){
+    motionBtn.style.display = "none";
+    document.getElementById("ar-caption").textContent = AR_CAPTION_MOTION;
+  }else{
+    showToast("モーションの利用が許可されませんでした。指でのドラッグ操作をお使いください。");
+    motionBtn.style.display = "none";
+  }
+});
+function closeAR(){
+  document.getElementById("ar-modal").classList.remove("open");
+  if(arStream){ arStream.getTracks().forEach(t=>t.stop()); arStream = null; }
+  if(window.AR3D){
+    window.AR3D.closeFallback();
+    window.AR3D.closeXR();
+    window.AR3D.disableOrientation();
+  }
+  currentArMode = null;
+  resetArUi();
+}
+document.getElementById("ar-close").addEventListener("click", closeAR);
+
+/* =========================================================
+   撮影演出（フラッシュ→ダイアリーへ飛ぶ）＋ 次のあしあとヒント
+========================================================= */
+function playCaptureEffect(dataUrl){
+  return new Promise(resolve=>{
+    const flash = document.getElementById("ar-flash");
+    const fly = document.getElementById("ar-flyphoto");
+    fly.style.backgroundImage = `url(${dataUrl})`;
+    flash.classList.remove("go"); void flash.offsetWidth; flash.classList.add("go");
+    fly.classList.remove("go"); void fly.offsetWidth; fly.classList.add("go");
+    setTimeout(()=>{
+      fly.classList.remove("go");
+      const tab = document.getElementById("tab-album");
+      const badge = document.getElementById("album-badge");
+      tab.classList.remove("pulse"); void tab.offsetWidth; tab.classList.add("pulse");
+      badge.classList.remove("show"); void badge.offsetWidth; badge.classList.add("show");
+      setTimeout(()=>{ badge.classList.remove("show"); tab.classList.remove("pulse"); }, 1800);
+      resolve();
+    }, 1050);
+  });
+}
+function hintSpotLabel(spot){
+  const base = spot.name.replace(/^[①-⑥]\s*/,'');
+  return spot.id === "goal" ? "恐竜広場（ゴール）" : base;
+}
+async function openHintOverlay(fromSpot, toSpot){
+  document.getElementById("hint-title").textContent = "つぎの あしあと";
+  document.getElementById("hint-body").innerHTML = fromSpot.hint || "";
+  document.getElementById("hint-modal").classList.add("open");
+
+  const card = document.getElementById("hint-mapcard");
+  const img = document.getElementById("hint-map-img");
+  const overlay = document.getElementById("hint-overlay");
+  overlay.innerHTML = "";
+  overlay.classList.remove("show");
+
+  const useWalker = fromSpot.id === "bonus-sankankaikan"; // この区間だけ、足あとの代わりに恐竜の後ろ姿を歩かせる
+
+  if(useWalker){
+    // 専用の実写ルート画像を使う。ワープ変換不要、画像自身の%座標をそのまま使う。
+    img.src = "assets/sankan_route_map.png";
+    card.style.aspectRatio = `${SANKAN_ROUTE_IMG.w}/${SANKAN_ROUTE_IMG.h}`;
+    img.style.width = SANKAN_ROUTE_IMG.w+"px";
+    img.style.height = SANKAN_ROUTE_IMG.h+"px";
+    const cardW = card.clientWidth, cardH = card.clientHeight;
+    const fit = Math.min(cardW/SANKAN_ROUTE_IMG.w, cardH/SANKAN_ROUTE_IMG.h);
+    const tx = (cardW - SANKAN_ROUTE_IMG.w*fit)/2, ty = (cardH - SANKAN_ROUTE_IMG.h*fit)/2;
+    img.style.transition = "none";
+    img.style.transform = `translate(${tx}px,${ty}px) scale(${fit})`;
+    void img.offsetWidth;
+
+    const path = REAL_ROUTE_SANKAN;
+    const startP = path[0], endP = path[path.length-1];
+
+    const startPin = document.createElement("div");
+    startPin.className = "hint-pin start";
+    startPin.style.left = startP.x+"%"; startPin.style.top = startP.y+"%";
+    startPin.innerHTML = `<span class="tag">${hintSpotLabel(fromSpot)}</span><div class="dot"></div>`;
+    const endPin = document.createElement("div");
+    endPin.className = "hint-pin end";
+    endPin.style.left = endP.x+"%"; endPin.style.top = endP.y+"%";
+    endPin.innerHTML = `<span class="tag">福井駅前</span><div class="dot"></div>`;
+    overlay.appendChild(startPin);
+    overlay.appendChild(endPin);
+
+    const walkerEl = document.createElement("img");
+    walkerEl.className = "hint-walker";
+    walkerEl.src = "assets/dino_back_sprite.png";
+    walkerEl.alt = "恐竜の後ろ姿";
+    walkerEl.style.left = startP.x+"%"; walkerEl.style.top = startP.y+"%";
+    overlay.appendChild(walkerEl);
+
+    const endMark = document.createElement("div");
+    endMark.className = "hint-endmark";
+    endMark.style.left = endP.x+"%"; endMark.style.top = endP.y+"%";
+    overlay.appendChild(endMark);
+
+    await new Promise(r=>setTimeout(r, 450));
+    overlay.classList.add("show");
+    await new Promise(r=>setTimeout(r, 250));
+    walkerEl.classList.add("show");
+    for(const p of path){
+      walkerEl.style.left = p.x+"%"; walkerEl.style.top = p.y+"%";
+      await new Promise(r=>setTimeout(r, 220));
+    }
+    await new Promise(r=>setTimeout(r, 260));
+    endMark.classList.add("go");
+    return;
+  }
+
+  // 他の区間は町あるきマップ（792x432）を使う。前回useWalkerで変更した
+  // インライン style が残っていることがあるのでリセットする。
+  img.src = "assets/town-map.webp";
+  card.style.aspectRatio = "";
+  img.style.width = ""; img.style.height = "";
+
+  const cardW = card.clientWidth, cardH = card.clientHeight;
+  const scale0 = Math.min(cardW/MAP_W, cardH/MAP_H);
+  const tx0 = (cardW - MAP_W*scale0)/2, ty0 = (cardH - MAP_H*scale0)/2;
+  img.style.transition = "none";
+  img.style.transform = `translate(${tx0}px,${ty0}px) scale(${scale0})`;
+  void img.offsetWidth;
+  img.style.transition = "transform 1.35s cubic-bezier(.65,0,.35,1)";
+
+  const aPct = SPOT_MAP_POS[fromSpot.id];
+  const bPct = SPOT_MAP_POS[toSpot.id];
+  if(!aPct || !bPct) return; // 位置データのないスポットは演出をスキップ
+  const crop = computeMapCrop(aPct, bPct);
+  const scale1 = cardW/crop.w;
+  const tx1 = -crop.x*scale1, ty1 = -crop.y*scale1;
+
+  // オーバーレイ(ピン・足あと)は常にカード全体を覆う固定サイズの層なので、
+  // 画像側の拡大後の表示範囲(crop)を基準にしたパーセントへ変換してから置く。
+  // そうしないと、ズーム後に実際の地図上の位置とズレてしまう。
+  function toCropPct(mapPct){
+    const px = mapPct.x/100*MAP_W, py = mapPct.y/100*MAP_H;
+    return {x:(px-crop.x)/crop.w*100, y:(py-crop.y)/crop.h*100};
+  }
+  const aCrop = toCropPct(aPct), bCrop = toCropPct(bPct);
+
+  const startPin = document.createElement("div");
+  startPin.className = "hint-pin start";
+  startPin.style.left = aCrop.x+"%"; startPin.style.top = aCrop.y+"%";
+  startPin.innerHTML = `<span class="tag">${hintSpotLabel(fromSpot)}</span><div class="dot"></div>`;
+  const endPin = document.createElement("div");
+  endPin.className = "hint-pin end";
+  endPin.style.left = bCrop.x+"%"; endPin.style.top = bCrop.y+"%";
+  endPin.innerHTML = `<span class="tag">${hintSpotLabel(toSpot)}</span><div class="dot"></div>`;
+  overlay.appendChild(startPin);
+  overlay.appendChild(endPin);
+
+  const path = buildFootpath(aPct, bPct);
+  const pawEls = path.map(p=>{
+    const cp = toCropPct(p);
+    const el = document.createElement("div");
+    el.className = "hint-paw";
+    el.textContent = "🐾";
+    el.style.left = cp.x+"%"; el.style.top = cp.y+"%";
+    el.style.setProperty("--r", p.r+"deg");
+    overlay.appendChild(el);
+    return el;
+  });
+  const endMark = document.createElement("div");
+  endMark.className = "hint-endmark";
+  endMark.style.left = bCrop.x+"%"; endMark.style.top = bCrop.y+"%";
+  overlay.appendChild(endMark);
+
+  await new Promise(r=>setTimeout(r, 450));
+  img.style.transform = `translate(${tx1}px,${ty1}px) scale(${scale1})`;
+  await new Promise(r=>setTimeout(r, 1450));
+  overlay.classList.add("show");
+  await new Promise(r=>setTimeout(r, 250));
+  for(const el of pawEls){
+    el.classList.add("go");
+    await new Promise(r=>setTimeout(r, 120));
+  }
+  await new Promise(r=>setTimeout(r, 150));
+  endMark.classList.add("go");
+}
+document.getElementById("hint-close").addEventListener("click", ()=>{
+  document.getElementById("hint-modal").classList.remove("open");
+});
+document.getElementById("hint-close-btn").addEventListener("click", ()=>{
+  document.getElementById("hint-modal").classList.remove("open");
+  closeAR();
+  showScreen("screen-map");
+});
+
+/* --- 撮影・保存用の映像合成ヘルパー ---
+   CSSの object-fit:cover と同じ考え方で、映像の縦横比を保ったまま
+   出力先いっぱいにトリミング描画する。以前はこれをせず単純に
+   引き伸ばして描画していたため、保存された写真がプレビュー画面と
+   違う見た目（歪み）になってしまっていた。 */
+function drawVideoCover(ctx, video, outW, outH){
+  const vw = video.videoWidth, vh = video.videoHeight;
+  if(!vw || !vh) return false;
+  const videoRatio = vw / vh, outRatio = outW / outH;
+  let sx = 0, sy = 0, sw = vw, sh = vh;
+  if(videoRatio > outRatio){
+    sw = vh * outRatio;
+    sx = (vw - sw) / 2;
+  }else{
+    sh = vw / outRatio;
+    sy = (vh - sh) / 2;
+  }
+  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, outW, outH);
+  return true;
+}
+
+document.getElementById("ar-shutter").addEventListener("click", ()=>{
+  if(!window.AR3D) return;
+  const sources = window.AR3D.getCaptureSources();
+  const wrap = document.getElementById("ar-wrap");
+  const out = document.createElement("canvas");
+  out.width = wrap.clientWidth;
+  out.height = wrap.clientHeight;
+  const octx = out.getContext("2d");
+
+  let hasCameraBg = false;
+  if(sources.video && sources.video.videoWidth){
+    hasCameraBg = drawVideoCover(octx, sources.video, out.width, out.height);
+  }
+  if(!hasCameraBg){
+    octx.fillStyle = "#000";
+    octx.fillRect(0, 0, out.width, out.height);
+  }
+
+  let glDrawOk = true;
+  if(sources.glCanvas){
+    try{ octx.drawImage(sources.glCanvas, 0, 0, out.width, out.height); }
+    catch(e){ glDrawOk = false; }
+  }else{
+    glDrawOk = false;
+  }
+
+  // 撮影の成否（ピクセルが取れたか）と、保存の成否（IndexedDBへの書き込みが
+  // 成功したか）は別々に判定・報告する。撮影に失敗した場合は保存自体を行わず、
+  // 「保存成功」の表示を絶対に出さない。
+  const captureOk = hasCameraBg || glDrawOk;
+  logTelemetry({event:"ar_capture", success: captureOk, hasCameraBg, arMode: window.AR3D.getMode() || currentArMode});
+  if(!captureOk){
+    showToast("撮影に失敗しました。もう一度お試しください");
+    return;
+  }
+
+  out.toBlob(async (blob)=>{
+    if(!blob){
+      showToast("撮影に失敗しました。もう一度お試しください");
+      logTelemetry({event:"ar_save", success:false, arMode: window.AR3D.getMode() || currentArMode, detail:"toBlob_null"});
+      return;
+    }
+    try{
+      await addPhotoToAlbum(activeSpot ? activeSpot.name : "?", blob);
+      showToast("フォトを保存しました！ダイアリーで見られます");
+      logTelemetry({event:"ar_save", success:true, arMode: window.AR3D.getMode() || currentArMode});
+      await playCaptureEffect(out.toDataURL("image/jpeg", 0.7));
+      const nextSpot = getNextSpot(activeSpot);
+      if(nextSpot) openHintOverlay(activeSpot, nextSpot);
+    }catch(e){
+      showToast("保存に失敗しました（端末の空き容量をご確認ください）");
+      logTelemetry({event:"ar_save", success:false, arMode: window.AR3D.getMode() || currentArMode, detail:String(e && e.message || e)});
+    }
+  }, "image/png");
+});
+
+/* =========================================================
+   ダイアリー（アルバム）
+========================================================= */
+function renderAlbum(){
+  const grid = document.getElementById("album-grid");
+  grid.innerHTML = "";
+  const totalSlots = Math.max(6, album.length);
+  for(let i=0;i<totalSlots;i++){
+    const item = album[i];
+    const slot = document.createElement("div");
+    slot.className = "album-slot";
+    if(item){
+      slot.innerHTML = `<img src="${albumObjectUrl(item)}" alt="${item.spot}"><span class="label">${item.spot.replace(/^[①-⑥]\s*/,'').slice(0,6)}</span>`;
+      slot.style.cursor = "pointer";
+      slot.addEventListener("click", ()=> openPhotoView(item));
+    }else{
+      slot.innerHTML = `<span class="placeholder">🦴</span>`;
+    }
+    grid.appendChild(slot);
+  }
+}
+
+/* =========================================================
+   写真の拡大表示 ＆ スマホへの保存
+   Web Share API（対応端末はネイティブの「画像を保存」共有シートが開く）を
+   優先し、非対応環境ではダウンロードリンクにフォールバックする。
+========================================================= */
+let activePhoto = null;
+function openPhotoView(item){
+  activePhoto = item;
+  document.getElementById("photo-view-title").textContent = item.spot;
+  document.getElementById("photo-view-img").src = albumObjectUrl(item);
+  document.getElementById("photo-view-modal").classList.add("open");
+}
+function closePhotoView(){
+  document.getElementById("photo-view-modal").classList.remove("open");
+}
+document.getElementById("photo-view-close").addEventListener("click", closePhotoView);
+
+async function savePhotoToDevice(blob, filename){
+  try{
+    const file = new File([blob], filename, {type: blob.type || "image/png"});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:"フクイちゃんとまいごの大冒険"});
+      return true;
+    }
+  }catch(e){
+    // ユーザーが共有をキャンセルした場合などはここに来るが、
+    // ダウンロードのフォールバックを試すので無視してよい
+  }
+  try{
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=> URL.revokeObjectURL(url), 30000);
+    return true;
+  }catch(e){
+    return false;
+  }
+}
+document.getElementById("photo-view-save").addEventListener("click", async ()=>{
+  if(!activePhoto) return;
+  const filename = "fukui-chan_" + activePhoto.spot.replace(/[^\w一-龠ぁ-んァ-ヶー]/g, "") + ".png";
+  const ok = await savePhotoToDevice(activePhoto.blob, filename);
+  showToast(ok ? "保存を開始しました" : "保存に失敗しました。長押しで保存してください");
+});
+
+/* =========================================================
+   トースト通知
+========================================================= */
+let toastTimer = null;
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> t.classList.remove("show"), 2600);
+}
+
+/* =========================================================
+   初期化
+========================================================= */
+renderTrail();
+renderSpotList();
+initAlbum();
+if(DEBUG_MODE){
+  const banner = document.getElementById("debug-banner");
+  if(banner) banner.style.display = "block";
+}
+if(progress.started){
+  showScreen("screen-map");
+  startGPS();
+}
+
+if("serviceWorker" in navigator){
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("sw.js").catch(()=>{});
+  });
+}
+</script>
+
+<!-- =========================================================
+     AR 3Dビューア（three.js）
+     カメラ映像の上に .glb モデルをリアルタイム合成表示する。
+     window.AR3D として openAR()/closeAR() から呼び出される。
+========================================================= -->
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "./vendor/three/examples/jsm/loaders/GLTFLoader.js";
+
+let renderer = null, scene = null, camera = null, group = null, rafId = null;
+let dragEnabled = false, dragging = false, dragStartX = 0, dragStartRotY = 0;
+let currentMode = null; // "fallback" | "webxr" | null
+const loader = new GLTFLoader();
+const modelCache = {};
+
+/* --- 固定パラメータ：フォールバック（カメラ合成）モードでは、
+   モデルはカメラの前方に常に同じ位置・同じ高さで置く --- */
+const EYE_Y = 0.55;          // カメラの目線の高さ
+const MODEL_Z_SINGLE = -2.5; // 1体表示のときの距離
+const MODEL_Z_MULTI = -3.3;  // 2体表示（ゴール演出）のときの距離
+const LOOK_Y = 0.58;         // ドラッグ操作モード時に見る高さ
+
+/* --- モデルごとの実寸・接地・確認状況の設定 ---
+   heightMeters: そのキャラクターの実際の高さ（メートル）。WebXRモードでは
+   実空間に置いたときのワールドスケール算出に使い、フォールバックモードでも
+   同じ値から逆算したスケールを使うため、これまで見た目でチューニングしてきた
+   キャラクター間の体格差（子ども恐竜は小さく、大人キャラは大きく等）は
+   完全に維持される。
+   ※ heightMeters は「実測値」ではなく、既存の表示スケール(旧MODEL_SCALES)×
+     モデルの生の縦寸法から逆算した推定値。実物大かどうかは要実機確認。
+   verified: 実機のWebXR（床への設置）で、接地・正面の向きを目視確認できたか。
+     未確認のモデルは、正面が反対を向いて見える可能性がある
+     （フォールバックモードの固定カメラでは常に正しく見えるよう作られているが、
+     WebXRでは任意の角度から近づけるため、向きの前提が崩れる余地がある）。 */
+const MODEL_CONFIG = {
+  "kodomo.glb":      { heightMeters: 0.4428, verified: true  },
+  "rekishi.glb":     { heightMeters: 1.05,   verified: false },
+  "ptera.glb":       { heightMeters: 1.05,   verified: false },
+  "ticket.glb":      { heightMeters: 1.05,   verified: false },
+  "dango.glb":       { heightMeters: 1.05,   verified: false },
+  "family_hug.glb":  { heightMeters: 0.7235, verified: false },
+  "garden_dino.glb": { heightMeters: 0.7245, verified: false },
+  "daigaku.glb":     { heightMeters: 0.45,   verified: false },
+  "sankan_dino.glb": { heightMeters: 3.2,    verified: false }, // 人間(約1.7m)よりはっきり大きい、見上げるサイズに設定
+};
+const DEFAULT_HEIGHT_METERS = 0.85;
+function configForModel(path){
+  const name = path.split("/").pop();
+  return MODEL_CONFIG[name] || { heightMeters: DEFAULT_HEIGHT_METERS, verified: false };
+}
+const SINGLE_MODEL_OFFSET_X = 0.28; // 1体表示のとき、顔にかぶらないよう中心から少し横にずらす
+
+/* --- 接地感のための影（視覚補助）---
+   実際の設置面検出（シャドウキャッチャー等）ではなく、あくまで
+   「足元が浮いて見えない/沈んで見えない」ようにするための簡易的な
+   円形グラデーションの影。フォールバックモードでは位置固定の視覚補助として、
+   WebXRモードでは設置したモデルの足元に追従して表示する。 */
+function createGroundShadow(radius){
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 128;
+  const ctx = canvas.getContext("2d");
+  const grad = ctx.createRadialGradient(64,64,0,64,64,64);
+  grad.addColorStop(0, "rgba(0,0,0,0.6)");
+  grad.addColorStop(0.35, "rgba(0,0,0,0.4)");
+  grad.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,128,128);
+  const tex = new THREE.CanvasTexture(canvas);
+  const geo = new THREE.CircleGeometry(radius, 32);
+  const mat = new THREE.MeshBasicMaterial({map:tex, transparent:true, depthWrite:false});
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.rotation.x = -Math.PI/2;
+  mesh.position.y = 0.001;
+  mesh.userData.isEphemeralVisual = true; // open()のたびに新規作成するので、close時に個別disposeする
+  return mesh;
+}
+
+/* --- 「発見した」感を出すための後光スプライト ---
+   モデルの背後にうっすら光るグラデーションを置くだけの演出で、実際の
+   光源やオクルージョンには影響しない（常にカメラの方を向くビルボード）。 */
+function createDiscoveryGlow(heightMeters){
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 128;
+  const ctx = canvas.getContext("2d");
+  const grad = ctx.createRadialGradient(64,64,0,64,64,64);
+  grad.addColorStop(0, "rgba(255,210,140,0.55)");
+  grad.addColorStop(0.5, "rgba(255,190,110,0.22)");
+  grad.addColorStop(1, "rgba(255,190,110,0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,128,128);
+  const tex = new THREE.CanvasTexture(canvas);
+  const mat = new THREE.SpriteMaterial({map:tex, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending});
+  const sprite = new THREE.Sprite(mat);
+  const size = heightMeters * 2.4;
+  sprite.scale.set(size, size, 1);
+  sprite.position.y = heightMeters * 0.6;
+  sprite.position.z = -heightMeters * 0.15; // わずかに奥へ。モデルの「背後」に見えるようにする
+  sprite.userData.isEphemeralVisual = true; // open()のたびに新規作成するので、close時に個別disposeする
+  return sprite;
+}
+
+/* --- ジャイロセンサー（スマホの向き）でカメラを動かす仕組み ---
+   ポケモンGOのように「キャラクターはその場に固定」「スマホを動かすと
+   画面の中の見える範囲が変わる」という体験にするための処理。
+   位置トラッキング（SLAM）は行わないため、正確なワールド座標固定ではないが、
+   スマホの向きに応じて視点を回転させることで、その場に留まっている
+   ような見た目を再現する。 */
+let orientationSupported = "DeviceOrientationEvent" in window;
+let orientationActive = false;
+let deviceQuaternion = new THREE.Quaternion();
+let baseQuaternionInverse = null;
+const _tmpEuler = new THREE.Euler();
+const _screenTransform = new THREE.Quaternion();
+const _worldTransform = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5));
+const _axisZ = new THREE.Vector3(0, 0, 1);
+
+function getScreenAngle(){
+  if(screen.orientation && typeof screen.orientation.angle === "number") return screen.orientation.angle;
+  if(typeof window.orientation === "number") return window.orientation;
+  return 0;
+}
+
+function computeDeviceQuaternion(alpha, beta, gamma){
+  const d2r = Math.PI / 180;
+  _tmpEuler.set(beta * d2r, alpha * d2r, -gamma * d2r, "YXZ");
+  const q = new THREE.Quaternion().setFromEuler(_tmpEuler);
+  q.multiply(_worldTransform);
+  _screenTransform.setFromAxisAngle(_axisZ, -getScreenAngle() * d2r);
+  q.multiply(_screenTransform);
+  return q;
+}
+
+function handleDeviceOrientation(e){
+  if(e.alpha === null || e.alpha === undefined) return;
+  deviceQuaternion = computeDeviceQuaternion(e.alpha, e.beta || 0, e.gamma || 0);
+  if(!baseQuaternionInverse){
+    // ARを開いた最初の向きを「正面＝モデルが見える向き」として基準化する
+    baseQuaternionInverse = deviceQuaternion.clone().invert();
+  }
+}
+
+async function enableOrientation(){
+  if(!orientationSupported) return false;
+  try{
+    if(typeof DeviceOrientationEvent.requestPermission === "function"){
+      const result = await DeviceOrientationEvent.requestPermission();
+      if(result !== "granted") return false;
+    }
+  }catch(err){
+    return false;
+  }
+  baseQuaternionInverse = null;
+  window.addEventListener("deviceorientation", handleDeviceOrientation);
+  orientationActive = true;
+  return true;
+}
+
+function disableOrientation(){
+  window.removeEventListener("deviceorientation", handleDeviceOrientation);
+  orientationActive = false;
+  baseQuaternionInverse = null;
+}
+
+function needsExplicitPermission(){
+  return orientationSupported && typeof DeviceOrientationEvent.requestPermission === "function";
+}
+
+function ensureRenderer(canvas){
+  if(renderer) return;
+  renderer = new THREE.WebGLRenderer({canvas, alpha:true, antialias:true, preserveDrawingBuffer:true});
+  renderer.setClearColor(0x000000, 0);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(45, 1, 0.01, 100);
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8a7256, 2.4));
+  const dir = new THREE.DirectionalLight(0xffffff, 2.2);
+  dir.position.set(2, 4, 3);
+  scene.add(dir);
+  const dir2 = new THREE.DirectionalLight(0xffffff, 1.0);
+  dir2.position.set(-2, 1, -3);
+  scene.add(dir2);
+}
+
+function fitCanvas(canvas){
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if(w === 0 || h === 0) return;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+
+function loadModel(path){
+  return new Promise((resolve, reject)=>{
+    if(modelCache[path]){
+      resolve(modelCache[path].clone(true));
+      return;
+    }
+    loader.load(path, (gltf)=>{
+      modelCache[path] = gltf.scene;
+      resolve(gltf.scene.clone(true));
+    }, undefined, (err)=> reject(err));
+  });
+}
+
+/* ドラッグ回転は、ジャイロが使えない端末（PCなど）向けのフォールバック操作 */
+function setupDrag(canvas){
+  if(dragEnabled) return;
+  dragEnabled = true;
+  canvas.style.pointerEvents = "auto";
+  canvas.addEventListener("pointerdown", (e)=>{
+    if(!group || orientationActive) return;
+    dragging = true;
+    dragStartX = e.clientX;
+    dragStartRotY = group.rotation.y;
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener("pointermove", (e)=>{
+    if(!dragging || !group || orientationActive) return;
+    const dx = e.clientX - dragStartX;
+    group.rotation.y = dragStartRotY + dx * 0.012;
+  });
+  const endDrag = ()=>{ dragging = false; };
+  canvas.addEventListener("pointerup", endDrag);
+  canvas.addEventListener("pointercancel", endDrag);
+  canvas.addEventListener("pointerleave", endDrag);
+}
+
+async function openFallback(canvas, modelPaths, loadingEl, options){
+  currentMode = "fallback";
+  const centerOnly = !!(options && options.center);
+  ensureRenderer(canvas);
+  setupDrag(canvas);
+  fitCanvas(canvas);
+  baseQuaternionInverse = null;
+
+  if(group){ scene.remove(group); group = null; }
+  group = new THREE.Group();
+  scene.add(group);
+
+  if(loadingEl) loadingEl.style.display = "flex";
+  try{
+    const models = await Promise.all(modelPaths.map(loadModel));
+    const modelZ = models.length > 1 ? MODEL_Z_MULTI : MODEL_Z_SINGLE;
+    models.forEach((obj, i)=>{
+      const box = new THREE.Box3().setFromObject(obj);
+      const center = box.getCenter(new THREE.Vector3());
+      const rawHeight = Math.max(box.max.y - box.min.y, 0.0001);
+      const cfg = configForModel(modelPaths[i]);
+      const scale = cfg.heightMeters / rawHeight;
+      obj.scale.setScalar(scale);
+      obj.position.x -= center.x * scale;
+      obj.position.y -= box.min.y * scale;
+      obj.position.z -= center.z * scale;
+      if(models.length > 1){
+        const spread = 0.75;
+        obj.position.x += (i - (models.length - 1) / 2) * spread;
+        obj.rotation.y = (i === 0 ? 0.3 : -0.3);
+      }else if(!centerOnly){
+        obj.position.x += SINGLE_MODEL_OFFSET_X;
+      }
+      const shadow = createGroundShadow(cfg.heightMeters * 0.4);
+      obj.add(shadow);
+      obj.add(createDiscoveryGlow(cfg.heightMeters));
+      group.add(obj);
+    });
+
+    // モデルはカメラの正面・固定距離に配置。カメラ自体は原点で固定。
+    // （位置トラッキングは行わないため、「その場に固定されている」ように
+    //   見えるのはスマホの向きに視界を追従させる効果によるものであり、
+    //   実空間への位置合わせそのものではない。）
+    group.position.set(0, 0, modelZ);
+    camera.position.set(0, EYE_Y, 0);
+    camera.lookAt(0, LOOK_Y, modelZ);
+  }catch(err){
+    if(loadingEl){ loadingEl.textContent = "3Dモデルの読み込みに失敗しました"; }
+    console.error("AR3D load error", err);
+    throw err;
+  }finally{
+    if(loadingEl) loadingEl.style.display = "none";
+  }
+
+  cancelAnimationFrame(rafId);
+  function loop(){
+    rafId = requestAnimationFrame(loop);
+    if(orientationActive && baseQuaternionInverse){
+      // 「ARを開いた瞬間の向き」を基準に、その後の回転差分だけをカメラに適用する。
+      // → 開いた瞬間はモデルが正面に見え、スマホを動かすとその分だけ視界が回転する。
+      const rel = baseQuaternionInverse.clone().multiply(deviceQuaternion);
+      camera.quaternion.copy(rel);
+    }
+    fitCanvas(canvas);
+    renderer.render(scene, camera);
+  }
+  loop();
+}
+
+function closeFallback(){
+  if(currentMode === "fallback") currentMode = null;
+  cancelAnimationFrame(rafId);
+  rafId = null;
+  if(group && scene){
+    // モデル本体（clone）はキャッシュと形状/マテリアルを共有しているためdisposeしない。
+    // open()のたびに新規作成する影・後光スプライトだけ個別に破棄する。
+    group.traverse(node=>{
+      if(!node.userData || !node.userData.isEphemeralVisual) return;
+      if(node.geometry) node.geometry.dispose();
+      if(node.material){
+        if(node.material.map) node.material.map.dispose();
+        node.material.dispose();
+      }
+    });
+    scene.remove(group);
+    group = null;
+  }
+}
+
+/* =========================================================
+   WebXR（immersive-ar）ヒットテストによる「本物の位置合わせAR」
+   対応端末では、床/地面を検出してレティクルを表示し、タップした場所に
+   モデルを設置する。設置後はアンカー（対応端末のみ）または設置時の
+   固定姿勢によって、その場にとどまり続けるように表示する。
+========================================================= */
+let xrSession = null;
+let xrHitTestSource = null;
+let xrReticle = null;
+let xrPlacedGroup = null;
+let xrGroundShadow = null;
+let xrPlaced = false;
+let xrLastHitPose = null;
+let xrSelectPending = false;
+let xrAnchor = null;
+let xrUi = null;
+let xrOnEnd = null;
+let xrHiddenStream = null;
+let xrHiddenVideo = null;
+let xrPlaceBtnBound = false;
+let xrUiLastState = "";
+
+async function detectARMode(){
+  if(!("xr" in navigator)) return "fallback";
+  try{
+    const supported = await navigator.xr.isSessionSupported("immersive-ar");
+    return supported ? "webxr" : "fallback";
+  }catch(e){
+    return "fallback";
+  }
+}
+
+function bindPlaceButton(btn){
+  if(xrPlaceBtnBound || !btn) return;
+  xrPlaceBtnBound = true;
+  btn.addEventListener("click", ()=>{
+    if(!xrSession) return;
+    if(!xrPlaced && xrLastHitPose){
+      xrSelectPending = true;
+    }else if(xrPlaced){
+      resetXRPlacement();
+    }
+  });
+}
+
+function updatePlaceUi(hitFound){
+  if(!xrUi) return;
+  const state = xrPlaced ? "placed" : (hitFound ? "hit" : "searching");
+  if(state === xrUiLastState) return;
+  xrUiLastState = state;
+  if(state === "placed"){
+    if(xrUi.reticleHint) xrUi.reticleHint.style.display = "none";
+    if(xrUi.placeBtn){ xrUi.placeBtn.style.display = "block"; xrUi.placeBtn.textContent = "置き直す"; }
+  }else{
+    if(xrUi.reticleHint){
+      xrUi.reticleHint.style.display = "block";
+      xrUi.reticleHint.textContent = state === "hit" ? "タップして恐竜を置いてね" : "床や地面にカメラを向けてください";
+    }
+    if(xrUi.placeBtn){
+      xrUi.placeBtn.style.display = state === "hit" ? "block" : "none";
+      xrUi.placeBtn.textContent = "ここに置く";
+    }
+  }
+}
+
+function resetXRPlacement(){
+  xrPlaced = false;
+  xrAnchor = null;
+  if(xrPlacedGroup) xrPlacedGroup.visible = false;
+  xrUiLastState = "";
+  updatePlaceUi(false);
+}
+
+function doPlace(pose, viewerPose){
+  const m = new THREE.Matrix4().fromArray(pose.transform.matrix);
+  const pos = new THREE.Vector3();
+  const quat = new THREE.Quaternion();
+  const scl = new THREE.Vector3();
+  m.decompose(pos, quat, scl);
+  xrPlacedGroup.position.copy(pos);
+
+  // モデルの正面をタップした瞬間のカメラの方へ向ける。
+  // フォールバックモードでは rotation.y = 0 のとき正面がカメラを向くように
+  // 既に調整済みのため、その前提（+Z が正面）をそのまま使っている。
+  // 実機で正面が反対になっているモデルがあれば、MODEL_CONFIG に
+  // 個別の補正角を追加する形で直す想定（今回は未確認）。
+  let camX = pos.x, camZ = pos.z + 1;
+  if(viewerPose && viewerPose.transform){
+    camX = viewerPose.transform.position.x;
+    camZ = viewerPose.transform.position.z;
+  }
+  const yaw = Math.atan2(camX - pos.x, camZ - pos.z);
+  xrPlacedGroup.rotation.set(0, yaw, 0);
+  xrPlacedGroup.visible = true;
+  xrPlaced = true;
+  xrReticle.visible = false;
+}
+
+function updateOffscreenArrow(frame, refSpace){
+  if(!xrUi || !xrUi.offscreenArrow) return;
+  if(!xrPlaced){ xrUi.offscreenArrow.style.display = "none"; return; }
+  const viewerPose = frame.getViewerPose(refSpace);
+  if(!viewerPose || !viewerPose.views.length){ xrUi.offscreenArrow.style.display = "none"; return; }
+  const view = viewerPose.views[0];
+  const viewMatrix = new THREE.Matrix4().fromArray(view.transform.matrix);
+  const camPos = new THREE.Vector3().setFromMatrixPosition(viewMatrix);
+  const camForward = new THREE.Vector3(0,0,-1).transformDirection(viewMatrix);
+  const objPos = new THREE.Vector3();
+  xrPlacedGroup.getWorldPosition(objPos);
+
+  const projMatrix = new THREE.Matrix4().fromArray(view.projectionMatrix);
+  const invView = viewMatrix.clone().invert();
+  const viewProj = projMatrix.clone().multiply(invView);
+  const ndc = objPos.clone().applyMatrix4(viewProj);
+  const onScreen = ndc.z < 1 && Math.abs(ndc.x) < 0.92 && Math.abs(ndc.y) < 0.92;
+  if(onScreen){ xrUi.offscreenArrow.style.display = "none"; return; }
+
+  const toObj = objPos.clone().sub(camPos);
+  toObj.y = 0;
+  if(toObj.lengthSq() < 1e-6){ xrUi.offscreenArrow.style.display = "none"; return; }
+  toObj.normalize();
+  const flatForward = camForward.clone();
+  flatForward.y = 0;
+  flatForward.normalize();
+  const angle = Math.atan2(
+    flatForward.x*toObj.z - flatForward.z*toObj.x,
+    flatForward.x*toObj.x + flatForward.z*toObj.z
+  );
+  xrUi.offscreenArrow.style.display = "flex";
+  xrUi.offscreenArrow.style.transform = "rotate(" + (-angle*180/Math.PI) + "deg)";
+}
+
+function onXRFrame(timestamp, frame){
+  const refSpace = renderer.xr.getReferenceSpace();
+  let hitPose = null;
+
+  if(xrHitTestSource && !xrPlaced){
+    const hits = frame.getHitTestResults(xrHitTestSource);
+    if(hits.length){
+      hitPose = hits[0].getPose(refSpace);
+      xrLastHitPose = hitPose;
+      xrReticle.visible = true;
+      xrReticle.matrix.fromArray(hitPose.transform.matrix);
+    }else{
+      xrLastHitPose = null;
+      xrReticle.visible = false;
+    }
+  }
+  updatePlaceUi(!!hitPose);
+
+  if(xrSelectPending){
+    xrSelectPending = false;
+    if(!xrPlaced && xrLastHitPose){
+      const viewerPose = frame.getViewerPose(refSpace);
+      doPlace(xrLastHitPose, viewerPose);
+      if(typeof frame.createAnchor === "function"){
+        frame.createAnchor(xrLastHitPose.transform, refSpace)
+          .then(anchor=>{ xrAnchor = anchor; })
+          .catch(()=>{ xrAnchor = null; /* アンカー非対応/失敗時は設置時の固定姿勢のまま表示を続ける */ });
+      }
+    }
+  }
+
+  if(xrPlaced && xrAnchor){
+    const anchorPose = frame.getPose(xrAnchor.anchorSpace, refSpace);
+    if(anchorPose){
+      xrPlacedGroup.position.set(
+        anchorPose.transform.position.x,
+        anchorPose.transform.position.y,
+        anchorPose.transform.position.z
+      );
+    }
+  }
+
+  updateOffscreenArrow(frame, refSpace);
+  renderer.render(scene, camera);
+}
+
+function onXRSelect(){
+  if(!xrPlaced) xrSelectPending = true;
+}
+
+function handleXRSessionEnd(){
+  cleanupXR();
+  if(xrOnEnd) xrOnEnd();
+}
+
+function cleanupXR(){
+  if(currentMode === "webxr") currentMode = null;
+  if(renderer) renderer.setAnimationLoop(null);
+  if(xrHitTestSource){ try{ xrHitTestSource.cancel(); }catch(e){} xrHitTestSource = null; }
+  if(xrSession){
+    xrSession.removeEventListener("end", handleXRSessionEnd);
+    xrSession.removeEventListener("select", onXRSelect);
+  }
+  xrSession = null;
+  xrPlaced = false;
+  xrAnchor = null;
+  xrLastHitPose = null;
+  xrSelectPending = false;
+  xrUiLastState = "";
+  if(xrReticle && scene){
+    scene.remove(xrReticle);
+    xrReticle.traverse(node=>{
+      if(node.geometry) node.geometry.dispose();
+      if(node.material) node.material.dispose();
+    });
+    xrReticle = null;
+  }
+  if(xrPlacedGroup && scene){
+    // モデル本体（clone）はキャッシュと形状/マテリアルを共有しているため
+    // disposeしない。ここで作った影・後光スプライトだけ個別に破棄する。
+    xrPlacedGroup.traverse(node=>{
+      if(!node.userData || !node.userData.isEphemeralVisual) return;
+      if(node.geometry) node.geometry.dispose();
+      if(node.material){
+        if(node.material.map) node.material.map.dispose();
+        node.material.dispose();
+      }
+    });
+    xrGroundShadow = null;
+    scene.remove(xrPlacedGroup);
+    xrPlacedGroup = null;
+  }
+  if(xrHiddenStream){ xrHiddenStream.getTracks().forEach(t=> t.stop()); xrHiddenStream = null; }
+  xrHiddenVideo = null;
+  if(renderer) renderer.xr.enabled = false;
+  if(xrUi){
+    if(xrUi.reticleHint) xrUi.reticleHint.style.display = "none";
+    if(xrUi.offscreenArrow) xrUi.offscreenArrow.style.display = "none";
+    if(xrUi.placeBtn) xrUi.placeBtn.style.display = "none";
+  }
+  xrUi = null;
+  xrOnEnd = null;
+}
+
+function closeXR(){
+  if(xrSession){
+    xrSession.end().catch(()=>{});
+    // 実際の後片付けは "end" イベント経由の handleXRSessionEnd で行う
+  }else{
+    cleanupXR();
+  }
+}
+
+async function openXR(canvas, modelPath, loadingEl, ui, onEnd){
+  currentMode = "webxr";
+  xrUi = ui;
+  xrOnEnd = onEnd;
+  xrPlaced = false;
+  xrAnchor = null;
+  xrUiLastState = "";
+  bindPlaceButton(ui && ui.placeBtn);
+
+  ensureRenderer(canvas);
+  renderer.xr.enabled = true;
+  canvas.style.pointerEvents = "none"; // 設置操作は session の select イベントで拾う
+
+  try{
+    // 撮影用に、画面には表示しない別カメラ映像を取得しておく。
+    // WebXRセッションが実際に合成しているパススルー映像を直接キャプチャする
+    // 標準手段は現行仕様に存在しないため、撮影時はこの隠し映像 + その瞬間の
+    // 3D描画内容を合成する代替方式を使う（openAR側のシャッター処理で使用）。
+    try{
+      xrHiddenStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}, audio:false});
+      xrHiddenVideo = document.createElement("video");
+      xrHiddenVideo.srcObject = xrHiddenStream;
+      xrHiddenVideo.muted = true;
+      xrHiddenVideo.playsInline = true;
+      await xrHiddenVideo.play().catch(()=>{});
+    }catch(e){
+      xrHiddenVideo = null; // 取得できなくても本体のARは継続し、撮影時のみ影響する
+    }
+
+    if(loadingEl) loadingEl.style.display = "flex";
+    let modelObj;
+    try{
+      modelObj = await loadModel(modelPath);
+    }catch(err){
+      if(loadingEl) loadingEl.textContent = "3Dモデルの読み込みに失敗しました";
+      throw err;
+    }finally{
+      if(loadingEl) loadingEl.style.display = "none";
+    }
+
+    const cfg = configForModel(modelPath);
+    const box = new THREE.Box3().setFromObject(modelObj);
+    const rawHeight = Math.max(box.max.y - box.min.y, 0.0001);
+    const scale = cfg.heightMeters / rawHeight;
+    const center = box.getCenter(new THREE.Vector3());
+    modelObj.scale.setScalar(scale);
+    modelObj.position.x -= center.x * scale;
+    modelObj.position.y -= box.min.y * scale;
+    modelObj.position.z -= center.z * scale;
+
+    xrPlacedGroup = new THREE.Group();
+    xrPlacedGroup.visible = false;
+    xrPlacedGroup.add(modelObj);
+    modelObj.add(createDiscoveryGlow(cfg.heightMeters));
+    xrGroundShadow = createGroundShadow(cfg.heightMeters * 0.4);
+    xrPlacedGroup.add(xrGroundShadow);
+    scene.add(xrPlacedGroup);
+
+    // 床に置くレティクル：内側の縁取りリング＋点線風の内輪＋外側のうっすらした光の輪の3枚重ね。
+    // 子メッシュはすべて親グループの行列（ヒットテストの姿勢）に追従する。
+    xrReticle = new THREE.Group();
+    xrReticle.matrixAutoUpdate = false;
+    xrReticle.visible = false;
+    const reticleRing = new THREE.Mesh(
+      new THREE.RingGeometry(0.085, 0.1, 48).rotateX(-Math.PI/2),
+      new THREE.MeshBasicMaterial({color:0xffd79b, opacity:0.95, transparent:true, side:THREE.DoubleSide})
+    );
+    const reticleDash = new THREE.Mesh(
+      new THREE.RingGeometry(0.056, 0.062, 48).rotateX(-Math.PI/2),
+      new THREE.MeshBasicMaterial({color:0xffffff, opacity:0.5, transparent:true, side:THREE.DoubleSide})
+    );
+    const reticleGlow = new THREE.Mesh(
+      new THREE.RingGeometry(0.1, 0.14, 48).rotateX(-Math.PI/2),
+      new THREE.MeshBasicMaterial({color:0xffb86b, opacity:0.18, transparent:true, side:THREE.DoubleSide, depthWrite:false})
+    );
+    xrReticle.add(reticleGlow, reticleRing, reticleDash);
+    scene.add(xrReticle);
+
+    const session = await navigator.xr.requestSession("immersive-ar", {
+      requiredFeatures: ["hit-test"],
+      optionalFeatures: ["anchors", "local-floor", "dom-overlay"],
+      domOverlay: (ui && ui.overlayRoot) ? {root: ui.overlayRoot} : undefined,
+    });
+    xrSession = session;
+    session.addEventListener("end", handleXRSessionEnd);
+    session.addEventListener("select", onXRSelect);
+
+    await renderer.xr.setSession(session);
+    const refSpace = await session.requestReferenceSpace("local-floor").catch(()=> session.requestReferenceSpace("local"));
+    const viewerSpace = await session.requestReferenceSpace("viewer");
+    xrHitTestSource = await session.requestHitTestSource({space: viewerSpace});
+    renderer.xr.setReferenceSpace(refSpace);
+
+    updatePlaceUi(false);
+    renderer.setAnimationLoop(onXRFrame);
+  }catch(err){
+    // 途中で失敗した場合、scene/rendererにXR用の状態を残さないよう
+    // 必ず後片付けしてからエラーを呼び出し元（フォールバックへの切替）に伝える
+    cleanupXR();
+    canvas.style.pointerEvents = "";
+    throw err;
+  }
+}
+
+function getCaptureSources(){
+  if(currentMode === "webxr"){
+    return { video: xrHiddenVideo, glCanvas: renderer ? renderer.domElement : null };
+  }
+  if(currentMode === "fallback"){
+    return { video: document.getElementById("ar-video"), glCanvas: renderer ? renderer.domElement : null };
+  }
+  return { video: null, glCanvas: null };
+}
+
+window.AR3D = {
+  openFallback, closeFallback,
+  openXR, closeXR,
+  detectARMode,
+  getCaptureSources,
+  getMode: ()=> currentMode,
+  enableOrientation, disableOrientation,
+  isOrientationSupported: ()=> orientationSupported,
+  needsExplicitPermission,
+  isOrientationActive: ()=> orientationActive,
+};
+</script>
+</body>
+</html>
