@@ -630,8 +630,8 @@ const BONUS_SPOTS = [
     note:"福井市下六条町103番地。敷地・駐車場が広いため半径1kmに設定（※複数の地図サービスの座標を平均した概算値。現地確認・微調整推奨）。",
     arrive:"大きな建物のまわりをうろうろしていたら、人懐っこい恐竜とばったり出会った。迷子のフクイちゃん一家とは別の、この街のどこかに住んでいる恐竜みたい。",
     hint:"恐竜：<br>「福井駅前の方に行くと、面白いものが見られるよ！」<br><b>▶ 福井駅前へ戻ろう</b>",
-    ar:"元気いっぱい尻尾を振る恐竜が、ひょっこり顔を出す。",
-    model:"assets/models/garden_dino.glb"
+    ar:"元気いっぱい尻尾を振る恐竜が、見上げるくらい大きな姿でひょっこり現れる。",
+    model:"assets/models/sankan_dino.glb"
   }
 ];
 
@@ -1770,6 +1770,7 @@ const MODEL_CONFIG = {
   "family_hug.glb":  { heightMeters: 0.7235, verified: false },
   "garden_dino.glb": { heightMeters: 0.7245, verified: false },
   "daigaku.glb":     { heightMeters: 0.45,   verified: false },
+  "sankan_dino.glb": { heightMeters: 3.2,    verified: false }, // 人間(約1.7m)よりはっきり大きい、見上げるサイズに設定
 };
 const DEFAULT_HEIGHT_METERS = 0.85;
 function configForModel(path){
