@@ -348,7 +348,7 @@ body{
   position:relative;width:100%;aspect-ratio:354/405;border-radius:16px;overflow:hidden;
   border:1px solid var(--line);box-shadow:0 4px 14px rgba(0,0,0,.12);background:#cbd8b8;margin-bottom:14px;
 }
-.hint-mapcard img{position:absolute;left:0;top:0;width:792px;height:432px;transform-origin:0 0;}
+.hint-mapcard > img{position:absolute;left:0;top:0;width:792px;height:432px;transform-origin:0 0;}
 .hint-overlay{position:absolute;inset:0;opacity:0;transition:opacity .4s ease;}
 .hint-overlay.show{opacity:1;}
 .hint-pin{position:absolute;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;}
@@ -366,6 +366,12 @@ body{
   60%{opacity:1;transform:translate(-50%,-50%) scale(1.25) rotate(var(--r,0deg));}
   100%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(var(--r,0deg));}
 }
+.hint-walker{
+  position:absolute;width:34px;height:auto;transform:translate(-50%,-100%);
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));opacity:0;
+  transition:left .22s linear, top .22s linear, opacity .3s ease;
+}
+.hint-walker.show{opacity:1;}
 .hint-endmark{position:absolute;width:24px;height:24px;border-radius:50%;background:rgba(62,92,41,.4);transform:translate(-50%,-50%) scale(0);opacity:0;}
 .hint-endmark.go{animation:hintEndPulse 1s ease-out forwards;}
 @keyframes hintEndPulse{
@@ -1512,8 +1518,9 @@ async function openHintOverlay(fromSpot, toSpot){
   overlay.appendChild(startPin);
   overlay.appendChild(endPin);
 
+  const useWalker = fromSpot.id === "bonus-sankankaikan"; // この区間だけ、足あとの代わりに恐竜の後ろ姿を歩かせる
   const path = buildFootpath(aPct, bPct);
-  const pawEls = path.map(p=>{
+  const pawEls = useWalker ? [] : path.map(p=>{
     const cp = toCropPct(p);
     const el = document.createElement("div");
     el.className = "hint-paw";
@@ -1523,6 +1530,15 @@ async function openHintOverlay(fromSpot, toSpot){
     overlay.appendChild(el);
     return el;
   });
+  let walkerEl = null;
+  if(useWalker){
+    walkerEl = document.createElement("img");
+    walkerEl.className = "hint-walker";
+    walkerEl.src = "assets/dino_back_sprite.png";
+    walkerEl.alt = "恐竜の後ろ姿";
+    walkerEl.style.left = aCrop.x+"%"; walkerEl.style.top = aCrop.y+"%";
+    overlay.appendChild(walkerEl);
+  }
   const endMark = document.createElement("div");
   endMark.className = "hint-endmark";
   endMark.style.left = bCrop.x+"%"; endMark.style.top = bCrop.y+"%";
@@ -1533,11 +1549,22 @@ async function openHintOverlay(fromSpot, toSpot){
   await new Promise(r=>setTimeout(r, 1450));
   overlay.classList.add("show");
   await new Promise(r=>setTimeout(r, 250));
-  for(const el of pawEls){
-    el.classList.add("go");
-    await new Promise(r=>setTimeout(r, 120));
+  if(useWalker){
+    walkerEl.classList.add("show");
+    for(const p of path){
+      const cp = toCropPct(p);
+      walkerEl.style.left = cp.x+"%"; walkerEl.style.top = cp.y+"%";
+      await new Promise(r=>setTimeout(r, 220));
+    }
+    walkerEl.style.left = bCrop.x+"%"; walkerEl.style.top = bCrop.y+"%";
+    await new Promise(r=>setTimeout(r, 260));
+  }else{
+    for(const el of pawEls){
+      el.classList.add("go");
+      await new Promise(r=>setTimeout(r, 120));
+    }
+    await new Promise(r=>setTimeout(r, 150));
   }
-  await new Promise(r=>setTimeout(r, 150));
   endMark.classList.add("go");
 }
 document.getElementById("hint-close").addEventListener("click", ()=>{
